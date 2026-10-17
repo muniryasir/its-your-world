@@ -18,9 +18,9 @@ echo "==> Installing PostgreSQL"
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql >/dev/null
 bash .devcontainer/start-db.sh
-sudo -u postgres psql -qc "ALTER USER postgres PASSWORD 'postgres';"
-sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='itsyourworld'" | grep -q 1 \
-  || sudo -u postgres createdb itsyourworld
+sudo runuser -u postgres -- psql -qc "ALTER USER postgres PASSWORD 'postgres';"
+sudo runuser -u postgres -- psql -tc "SELECT 1 FROM pg_database WHERE datname='itsyourworld'" | grep -q 1 \
+  || sudo runuser -u postgres -- createdb itsyourworld
 
 echo "==> Installing Wasp CLI"
 npm install -g @wasp.sh/wasp-cli@0.26.0
