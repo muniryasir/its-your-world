@@ -8,7 +8,7 @@ import "./app.css";
 import "./space.css";
 
 // Pages that use the dark "space" look. App pages keep their own style.
-const SPACE_PATHS = ["/", "/world"];
+const SPACE_PATHS = ["/", "/login", "/signup", "/world"];
 
 export function Layout() {
   const { data: user } = useAuth();

@@ -20,6 +20,8 @@ const shots = [
   { name: "home-desktop", width: 1440, height: 900, path: "/", full: true },
   { name: "home-mobile", width: 390, height: 844, path: "/", full: true },
   { name: "login-desktop", width: 1440, height: 900, path: "/login", full: false },
+  { name: "signup-desktop", width: 1440, height: 900, path: "/signup", full: false },
+  { name: "login-mobile", width: 390, height: 844, path: "/login", full: false },
 ];
 
 for (const s of shots) {

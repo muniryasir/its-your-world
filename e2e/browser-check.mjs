@@ -43,12 +43,31 @@ await step("landing page renders", async () => {
   await page.getByRole("heading", { name: "It's your world." }).waitFor({ timeout: 30000 });
 });
 
+await step("login panel explains a wrong password", async () => {
+  await page.goto(PUBLIC + "/login", { waitUntil: "load" });
+  await page.getByRole("heading", { name: "Welcome back" }).waitFor({ timeout: 30000 });
+  await page.locator('input[name="username"]').fill("demo");
+  await page.locator('input[name="password"]').fill("wrong-password-1");
+  await page.locator('button[type="submit"]').click();
+  await page.getByText("don't match").waitFor({ timeout: 15000 });
+});
+
+await step("signup panel explains a taken username", async () => {
+  await page.goto(PUBLIC + "/signup", { waitUntil: "load" });
+  await page.getByRole("heading", { name: "Create your account" }).waitFor({ timeout: 30000 });
+  await page.locator('input[name="username"]').fill("demo");
+  await page.locator('input[name="password"]').fill("another-pass-1");
+  await page.locator('button[type="submit"]').click();
+  await page.getByText("That username is taken").waitFor({ timeout: 15000 });
+});
+
 await step("demo user logs in to their world", async () => {
   await page.goto(PUBLIC + "/login", { waitUntil: "load" });
   await page.locator('input[name="username"]').fill("demo");
   await page.locator('input[name="password"]').fill("demo1234");
   await page.locator('button[type="submit"], input[type="submit"]').first().click();
   await page.getByRole("heading", { name: "Welcome to your world, demo." }).waitFor({ timeout: 30000 });
+  if (!page.url().endsWith("/world")) throw new Error("login should land on /world, got " + page.url());
   await page.getByRole("link", { name: "Open Portfolio" }).waitFor({ timeout: 30000 });
 });
 

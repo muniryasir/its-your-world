@@ -1,16 +1,34 @@
+import { Navigate, useNavigate } from "react-router";
 import { Link } from "wasp/client/router";
 import { useAuth } from "wasp/client/auth";
+import { AuthPanel, type AuthMode } from "./AuthPanel";
 import { Starfield } from "./art/Starfield";
 import { HeroOrbit } from "./art/HeroOrbit";
 import { ArcadePlanet, MysteryPlanet, PortfolioPlanet } from "./art/Planets";
 import "./landing.css";
 
-export function LandingPage() {
+/**
+ * The public home page. On /login and /signup the same page renders with the
+ * auth panel open on top, so those URLs still work (redirects, bookmarks).
+ */
+export function LandingPage({ authMode }: { authMode?: AuthMode }) {
   const { data: user } = useAuth();
+  const navigate = useNavigate();
   const signedIn = Boolean(user);
+
+  // Already logged in: the login/signup URLs go straight to your world.
+  if (signedIn && authMode) return <Navigate to="/world" replace />;
 
   return (
     <div className="home">
+      {authMode && (
+        <AuthPanel
+          key="auth"
+          mode={authMode}
+          onModeChange={(m) => navigate(m === "login" ? "/login" : "/signup", { replace: true })}
+          onClose={() => navigate("/", { replace: true })}
+        />
+      )}
       <Starfield className="home-stars" />
 
       {/* ---------- Hero ---------- */}
@@ -23,7 +41,7 @@ export function LandingPage() {
           </p>
           <div className="home-actions">
             {signedIn ? (
-              <Link to="/portfolio" className="home-btn home-btn--primary">Open your portfolio</Link>
+              <Link to="/world" className="home-btn home-btn--primary">Open your world</Link>
             ) : (
               <>
                 <Link to="/signup" className="home-btn home-btn--primary">Create your account</Link>
