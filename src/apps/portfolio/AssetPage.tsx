@@ -249,7 +249,7 @@ function InvestPanel({ asset }: { asset: AssetDetail }) {
             <select value={portfolioId ?? ""} onChange={(e) => setPortfolioId(Number(e.target.value))}>
               {choices.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} · {side === "buy" ? `${money(p.cash)} cash` : `${quantity(held.get(p.id)!.quantity)} ${asset.symbol}`}
+                  {p.name}
                 </option>
               ))}
             </select>
@@ -281,6 +281,7 @@ function InvestPanel({ asset }: { asset: AssetDetail }) {
             <div><dt>Price</dt><dd className="num">{price(asset.price, asset.decimals)}</dd></div>
             {side === "buy" ? (
               <>
+                <div><dt>Cash available</dt><dd className="num">{portfolio ? money(portfolio.cash) : "—"}</dd></div>
                 <div><dt>You get</dt><dd className="num">{valid ? `≈ ${quantity(Number(units.toFixed(8)))} ${asset.symbol}` : "—"}</dd></div>
                 <div><dt>Cost</dt><dd className="num">{valid ? money(cost) : "—"}</dd></div>
                 <div>

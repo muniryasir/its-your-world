@@ -1,5 +1,5 @@
 // Small, dependency-free SVG charts for the Portfolio app.
-import { useId, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type PointerEvent } from "react";
 import { assetClassName, CLASS_COLORS } from "./assetClasses";
 import type { AllocationSlice } from "./operations";
 import { money, pct, price as fmtPrice, shortDate } from "./format";
@@ -29,14 +29,26 @@ export function Sparkline({ values, width = 96, height = 28 }: { values: number[
 // ---------------------------------------------------------------------------
 type Point = { date: string; close: number };
 
-const W = 720;
-const H = 260;
-const PAD = { top: 16, right: 64, bottom: 28, left: 12 };
+const PAD = { top: 16, right: 72, bottom: 28, left: 12 };
+
+// Axis labels drop the cents on big prices so they fit.
+const tickLabel = (v: number, decimals: number) => fmtPrice(v, v >= 1000 ? 0 : decimals);
 
 export function PriceChart({ points, decimals, label }: { points: Point[]; decimals: number; label: string }) {
   const gradientId = "pc" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
+  // Draw at the real pixel width so text stays readable on phones.
+  const [W, setW] = useState(720);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setW(Math.max(280, Math.round(entry.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const H = W < 500 ? 220 : 260;
 
   const geo = useMemo(() => {
     const closes = points.map((p) => p.close);
@@ -52,7 +64,7 @@ export function PriceChart({ points, decimals, label }: { points: Point[]; decim
     const ticks = [0, 1, 2, 3].map((k) => min + ((max - min) * (k + 0.5)) / 4);
     const dateTicks = [0, Math.floor((points.length - 1) / 2), points.length - 1];
     return { x, y, line, area, ticks, dateTicks };
-  }, [points]);
+  }, [points, W, H]);
 
   if (points.length < 2) return null;
 
@@ -72,7 +84,7 @@ export function PriceChart({ points, decimals, label }: { points: Point[]; decim
 
   return (
     <figure className="price-chart">
-      <div className="price-chart-plot">
+      <div className="price-chart-plot" ref={boxRef}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${W} ${H}`}
@@ -91,7 +103,7 @@ export function PriceChart({ points, decimals, label }: { points: Point[]; decim
           {geo.ticks.map((v) => (
             <g key={v} className="chart-grid">
               <line x1={PAD.left} x2={W - PAD.right} y1={geo.y(v)} y2={geo.y(v)} />
-              <text x={W - PAD.right + 8} y={geo.y(v) + 4}>{fmtPrice(v, decimals)}</text>
+              <text x={W - PAD.right + 8} y={geo.y(v) + 4}>{tickLabel(v, decimals)}</text>
             </g>
           ))}
           {geo.dateTicks.map((i, k) => (
