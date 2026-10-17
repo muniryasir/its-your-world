@@ -7,14 +7,13 @@ import { AppGate } from "../world/AppGate";
 import "./app.css";
 import "./space.css";
 
-// Pages that use the dark "space" look. App pages keep their own style.
+// Shell pages that use the dark "space" look. Apps opt in via their manifest.
 const SPACE_PATHS = ["/", "/login", "/signup", "/world"];
 
 export function Layout() {
   const { data: user } = useAuth();
   const { pathname } = useLocation();
   const username = user?.getFirstProviderUserId();
-  const isSpace = SPACE_PATHS.includes(pathname);
 
   const { data: myApps, isLoading: appsLoading } = useQuery(getMyApps, undefined, { enabled: Boolean(user) });
   const addedIds = new Set((myApps ?? []).map((a) => a.appId));
@@ -23,6 +22,8 @@ export function Layout() {
   // Block an app's pages until the user has added it. The server enforces
   // the same rule on every request; this just shows a friendly screen.
   const currentApp = appForPath(pathname);
+  // Apps can opt into the space look with `theme: "space"` in their manifest.
+  const isSpace = SPACE_PATHS.includes(pathname) || currentApp?.theme === "space";
   const checkingAccess = Boolean(user && currentApp && appsLoading);
   const gated = Boolean(user && currentApp && myApps && !addedIds.has(currentApp.id));
 

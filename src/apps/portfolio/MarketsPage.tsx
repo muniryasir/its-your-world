@@ -7,6 +7,14 @@ import { gainClass, perUnit, price, signedPct } from "./format";
 import "./portfolio.css";
 
 export function MarketsPage() {
+  return (
+    <div className="pf">
+      <MarketsPageContent />
+    </div>
+  );
+}
+
+function MarketsPageContent() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const raw = params.get("class");

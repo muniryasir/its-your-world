@@ -8,4 +8,5 @@ export const portfolioManifest: AppManifest = {
   status: "live",
   color: "#2ed3a0",
   basePath: "/portfolio",
+  theme: "space",
 };

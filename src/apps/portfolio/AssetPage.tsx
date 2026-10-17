@@ -19,6 +19,14 @@ const RANGES = [
 ] as const;
 
 export function AssetPage() {
+  return (
+    <div className="pf">
+      <AssetPageContent />
+    </div>
+  );
+}
+
+function AssetPageContent() {
   const { symbol = "" } = useParams();
   const { data: asset, isLoading, error } = useQuery(getAsset, { symbol }, { retry: false });
 

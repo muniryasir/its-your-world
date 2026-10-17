@@ -16,12 +16,13 @@ export const isAssetClass = (v: unknown): v is AssetClassId =>
 export const assetClassName = (id: string) =>
   ASSET_CLASSES.find((c) => c.id === id)?.name ?? id;
 
-// Allocation colors, in a fixed order (checked for color-blind separation).
-// Cash is a deliberate neutral: it's what's left, not an asset class.
+// Allocation colors, in a fixed order. The actual values live in
+// portfolio.css (--pf-oil, ...), checked for color-blind separation on the
+// dark surface. Cash is a deliberate neutral: it's what's left, not a class.
 export const CLASS_COLORS: Record<AssetClassId | "cash", string> = {
-  oil: "#eb6834",
-  crypto: "#1baf7a",
-  stocks: "#2a78d6",
-  metals: "#eda100",
-  cash: "#9aa3b2",
+  oil: "var(--pf-oil)",
+  crypto: "var(--pf-crypto)",
+  stocks: "var(--pf-stocks)",
+  metals: "var(--pf-metals)",
+  cash: "var(--pf-cash)",
 };

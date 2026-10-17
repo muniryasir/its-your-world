@@ -9,6 +9,14 @@ import { gainClass, money, signedMoney, signedPct } from "./format";
 import "./portfolio.css";
 
 export function PortfolioHomePage() {
+  return (
+    <div className="pf">
+      <PortfolioHomePageContent />
+    </div>
+  );
+}
+
+function PortfolioHomePageContent() {
   const { data: portfolios, isLoading, error } = useQuery(getPortfolios);
 
   if (isLoading) return <p className="muted">Loading your portfolios…</p>;

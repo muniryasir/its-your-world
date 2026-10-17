@@ -8,6 +8,14 @@ import { gainClass, money, price, quantity, shortDate, signedMoney, signedPct } 
 import "./portfolio.css";
 
 export function PortfolioDetailPage() {
+  return (
+    <div className="pf">
+      <PortfolioDetailPageContent />
+    </div>
+  );
+}
+
+function PortfolioDetailPageContent() {
   const params = useParams();
   const id = Number(params.id);
   const { data: portfolio, isLoading, error } = useQuery(

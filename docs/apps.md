@@ -52,6 +52,7 @@ The shell also blocks an app's pages in the browser when the app isn't added (`A
 
 - The home page and the hub use the dark "space" look (`src/shell/space.css`, fonts *Unbounded* + *Figtree*). Shared tokens: `--night`, `--night-deep`, `--starlight`, `--mist`, `--teal`, `--pink`, `--sun`, `--font-cosmic`, `--font-text`.
 - App pages render inside the light shell by default (`src/shell/app.css`). An app may restyle its own pages in its own CSS file, but must not change shell CSS.
+- An app can opt into the dark space shell with `theme: "space"` in its manifest (Portfolio does). The header then floats over the page like on the hub, so the app's pages add their own top padding, and the space tokens (`--night`, `--starlight`, `--mist`, `--teal`, `--font-cosmic`, …) are available to its CSS.
 - Hub tiles render on a dark card: use the `tile-*` classes from `src/world/world.css` (`tile-stats`, `tile-label`, `tile-value`, `tile-pos`, `tile-neg`, `tile-muted`).
 
 ## Testing and reviewing
