@@ -13,6 +13,10 @@ write a note in `docs/handoff/requests.md` and ask Yasir.
   `.github/**`, `scripts/diagnose.sh`, World models (`User`, `UserApp`).
 - **Portfolio app chat:** `src/apps/portfolio/**`, Portfolio models + migrations,
   the portfolio parts of seed/tests/README. See `docs/handoff/portfolio-app.md`.
+- **Arcade app chat:** `src/apps/arcade/**`, Arcade models + migrations,
+  the arcade parts of seed/tests/README. See `docs/handoff/arcade-app.md`.
+- App chats may add their one-line registry entries in `src/world/clientRegistry.tsx`,
+  `src/world/serverHooks.ts` and `main.wasp.ts`. Apps never read another app's tables.
 
 ## Non-negotiable security rules (details in docs/apps.md)
 
