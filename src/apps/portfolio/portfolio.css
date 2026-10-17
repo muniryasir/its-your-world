@@ -213,7 +213,9 @@ a.pcard:hover { text-decoration: none; transform: translateY(-2px); border-color
 }
 @media (max-width: 600px) {
   .hide-sm { display: none; }
-  .data-table th, .data-table td { padding-left: 10px; padding-right: 10px; }
+  .data-table { font-size: 0.82rem; }
+  .data-table th, .data-table td { padding-left: 7px; padding-right: 7px; }
+  .data-table th { letter-spacing: 0.02em; }
   .asset-price { align-items: flex-start; }
   .asset-price-value { font-size: 1.8rem; }
   .stats { grid-template-columns: 1fr 1fr; }
