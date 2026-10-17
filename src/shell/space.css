@@ -39,6 +39,7 @@
 .shell--space .brand { font-family: var(--font-cosmic); font-weight: 700; letter-spacing: -0.01em; }
 .shell--space .brand-mark { color: var(--teal); }
 .shell--space .whoami { color: var(--mist); }
+.shell--space a.navlink.active { color: var(--teal); }
 .shell--space .btn--ghost { color: var(--starlight); border-color: rgba(243, 240, 255, 0.3); }
 .shell--space .btn--ghost:hover { background: rgba(243, 240, 255, 0.08); }
 .shell--space .btn--primary { background: var(--teal); color: var(--night-deep); }
