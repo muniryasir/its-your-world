@@ -3,6 +3,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Keep a log; on failure print the tail (also as a GitHub annotation for CI).
+LOG=/tmp/codespace-setup.log
+exec > >(tee "$LOG") 2>&1
+on_error() {
+  local line=$1 cmd=$2
+  sleep 1
+  echo "!! Setup failed at line $line: $cmd  (full log: $LOG)"
+  echo "::error title=devcontainer-setup::line $line: $cmd%0A$(tail -40 "$LOG" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+}
+trap 'on_error $LINENO "$BASH_COMMAND"' ERR
+
 echo "==> Installing PostgreSQL"
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql >/dev/null
