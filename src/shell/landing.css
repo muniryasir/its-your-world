@@ -1,51 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;500;600&family=Press+Start+2P&display=swap");
-
-/* ---------- Tokens (home page only) ---------- */
-.home,
-.shell--home {
-  --night: #13163f;
-  --night-deep: #0c0e2e;
-  --nebula: #6c4bd8;
-  --starlight: #f3f0ff;
-  --mist: #b9b5df;
-  --teal: #2ed3a0;
-  --pink: #ff5fa2;
-  --sun: #ffd23f;
-  --font-cosmic: "Unbounded", "Figtree", system-ui, sans-serif;
-  --font-text: "Figtree", system-ui, sans-serif;
-  --gutter: max(clamp(16px, 5vw, 56px), calc((100% - 1240px) / 2));
-}
-
-/* The shell (header/footer) goes dark on the home page */
-.shell--home {
-  background:
-    radial-gradient(60rem 40rem at 85% -10%, rgba(108, 75, 216, 0.45), transparent 60%),
-    radial-gradient(50rem 36rem at -10% 30%, rgba(46, 211, 160, 0.12), transparent 60%),
-    linear-gradient(180deg, var(--night) 0%, var(--night-deep) 100%);
-  color: var(--starlight);
-  font-family: var(--font-text);
-}
-.shell--home .topbar {
-  background: transparent;
-  border-bottom-color: transparent;
-  backdrop-filter: none;
-  position: absolute;
-  left: 0;
-  right: 0;
-  padding-inline: var(--gutter);
-}
-.shell--home .brand,
-.shell--home .navlink { color: var(--starlight); }
-.shell--home .brand { font-family: var(--font-cosmic); font-weight: 700; letter-spacing: -0.01em; }
-.shell--home .brand-mark { color: var(--teal); }
-.shell--home .whoami { color: var(--mist); }
-.shell--home .btn--ghost { color: var(--starlight); border-color: rgba(243, 240, 255, 0.3); }
-.shell--home .btn--ghost:hover { background: rgba(243, 240, 255, 0.08); }
-.shell--home .btn--primary { background: var(--teal); color: var(--night-deep); }
-.shell--home .btn--primary:hover { background: #5ee6bb; }
-.shell--home .content { max-width: none; padding: 0; }
-.shell--home .footer { border-top-color: rgba(185, 181, 223, 0.15); color: var(--mist); }
-
 /* ---------- Page ---------- */
 .home {
   position: relative;
@@ -61,33 +13,6 @@
 }
 .home > section { position: relative; }
 .home h1, .home h2, .home h3 { font-family: var(--font-cosmic); letter-spacing: -0.02em; }
-.home code {
-  background: rgba(243, 240, 255, 0.12);
-  color: var(--starlight);
-  padding: 1px 7px;
-  border-radius: 6px;
-}
-
-/* Buttons */
-.home-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 14px 24px;
-  border-radius: 999px;
-  font: 600 1rem var(--font-text);
-  border: 1.5px solid transparent;
-  text-decoration: none;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-.home-btn:hover { text-decoration: none; }
-.home-btn:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
-.home-btn--primary { background: var(--starlight); color: var(--night-deep); }
-.home-btn--primary:hover { background: #ffffff; }
-.home-btn--ghost { color: var(--starlight); border-color: rgba(243, 240, 255, 0.35); }
-.home-btn--ghost:hover { border-color: var(--starlight); }
-.home-btn--teal { background: var(--teal); color: #062b22; }
-.home-btn--teal:hover { background: #5ee6bb; }
 
 /* ---------- Hero ---------- */
 .home-hero {
@@ -215,15 +140,6 @@
 .world--portfolio .world-points li::before { background: var(--teal); }
 .world--arcade .world-points li::before { background: var(--sun); border-radius: 0; }
 
-.world-status {
-  display: inline-block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 999px;
-}
-.world-status--live { background: rgba(46, 211, 160, 0.18); color: #8ff5d2; }
-.world-status--soon { background: rgba(255, 210, 63, 0.16); color: var(--sun); }
 
 /* Previews */
 .world-preview { border-radius: 22px; }

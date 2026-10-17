@@ -34,19 +34,52 @@ for (const s of shots) {
 }
 
 // Logged-in views
-const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
-await mapToLocal(ctx);
-const page = await ctx.newPage();
-await page.goto(BASE + "/login", { waitUntil: "networkidle" });
-await page.locator('input[name="username"]').fill("demo");
-await page.locator('input[name="password"]').fill("demo1234");
-await page.locator('button[type="submit"], input[type="submit"]').first().click();
+async function newPage(width = 1440, height = 900) {
+  const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" });
+  await mapToLocal(ctx);
+  return ctx.newPage();
+}
+async function shot(page, name, full = true) {
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: full });
+  console.log(`saved ${name}`);
+}
+async function signIn(page, user, pass) {
+  await page.goto(BASE + "/login", { waitUntil: "networkidle" });
+  await page.locator('input[name="username"]').fill(user);
+  await page.locator('input[name="password"]').fill(pass);
+  await page.locator('button[type="submit"], input[type="submit"]').first().click();
+}
+
+// Demo user: world with Portfolio, then the app itself
+let page = await newPage();
+await signIn(page, "demo", "demo1234");
+await page.getByRole("link", { name: "Open Portfolio" }).waitFor({ timeout: 30000 });
+await shot(page, "world-demo-desktop");
+await page.getByRole("link", { name: "Open Portfolio" }).click();
 await page.getByText("Long-Term Growth").waitFor({ timeout: 30000 });
-await page.waitForTimeout(800);
-await page.screenshot({ path: `${OUT}/dashboard-desktop.png`, fullPage: true });
-console.log("saved dashboard-desktop");
-await page.goto(BASE + "/", { waitUntil: "networkidle" });
-await page.waitForTimeout(1000);
-await page.screenshot({ path: `${OUT}/home-signed-in-desktop.png`, fullPage: false });
-console.log("saved home-signed-in-desktop");
+await shot(page, "portfolio-home-desktop");
+
+// New user: empty world, catalog, app gate
+page = await newPage();
+await page.goto(BASE + "/signup", { waitUntil: "networkidle" });
+await page.locator('input[name="username"]').fill("shot" + Date.now());
+await page.locator('input[name="password"]').fill("shot-pass-123");
+await page.locator('button[type="submit"], input[type="submit"]').first().click();
+await page.getByText("Your world is empty").waitFor({ timeout: 30000 });
+await shot(page, "world-empty-desktop");
+await page.getByRole("button", { name: "Add an app" }).first().click();
+await page.getByRole("button", { name: "Add Portfolio" }).waitFor();
+await shot(page, "world-catalog-desktop", false);
+await page.keyboard.press("Escape");
+await page.goto(BASE + "/portfolio", { waitUntil: "networkidle" });
+await page.getByRole("heading", { name: "Add Portfolio to your world" }).waitFor({ timeout: 30000 });
+await shot(page, "app-gate-desktop", false);
+
+// Mobile world (demo)
+page = await newPage(390, 844);
+await signIn(page, "demo", "demo1234");
+await page.getByRole("link", { name: "Open Portfolio" }).waitFor({ timeout: 30000 });
+await shot(page, "world-demo-mobile");
+
 await browser.close();

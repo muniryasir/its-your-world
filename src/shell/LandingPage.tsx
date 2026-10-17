@@ -23,7 +23,7 @@ export function LandingPage() {
           </p>
           <div className="home-actions">
             {signedIn ? (
-              <Link to="/dashboard" className="home-btn home-btn--primary">Open your portfolio</Link>
+              <Link to="/portfolio" className="home-btn home-btn--primary">Open your portfolio</Link>
             ) : (
               <>
                 <Link to="/signup" className="home-btn home-btn--primary">Create your account</Link>
@@ -66,7 +66,7 @@ export function LandingPage() {
               <li>Value, cost and gain or loss for every holding</li>
               <li>How your money is split across stocks, ETFs, crypto and bonds</li>
             </ul>
-            <Link to={signedIn ? "/dashboard" : "/signup"} className="home-btn home-btn--teal">
+            <Link to={signedIn ? "/portfolio" : "/signup"} className="home-btn home-btn--teal">
               {signedIn ? "Open your portfolio" : "Start a portfolio"}
             </Link>
           </div>

@@ -4,8 +4,9 @@ import { Link } from "wasp/client/router";
 import { createInvestment, getPortfolio, useQuery } from "wasp/client/operations";
 import type { HoldingView } from "./operations";
 import { gainClass, money, quantity, signedMoney, signedPct } from "./format";
+import "./portfolio.css";
 
-export function PortfolioPage() {
+export function PortfolioDetailPage() {
   const params = useParams();
   const id = Number(params.id);
   const { data: portfolio, isLoading, error } = useQuery(
@@ -19,7 +20,7 @@ export function PortfolioPage() {
       <div className="empty-state">
         <h1>Portfolio not found</h1>
         <p className="muted">It doesn't exist, or it isn't yours.</p>
-        <Link to="/dashboard" className="btn btn--primary">Back to portfolios</Link>
+        <Link to="/portfolio" className="btn btn--primary">Back to portfolios</Link>
       </div>
     );
   }
@@ -28,11 +29,10 @@ export function PortfolioPage() {
 
   return (
     <div className="portfolio">
-      <Link to="/dashboard" className="backlink">← All portfolios</Link>
+      <Link to="/portfolio" className="backlink">← All portfolios</Link>
 
       <div className="page-head">
         <div>
-          <p className="eyebrow">Portfolio</p>
           <h1>{portfolio.name}</h1>
           {portfolio.description && <p className="muted">{portfolio.description}</p>}
         </div>

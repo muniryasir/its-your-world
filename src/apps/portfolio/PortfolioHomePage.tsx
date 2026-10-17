@@ -3,8 +3,9 @@ import { useNavigate } from "react-router";
 import { Link } from "wasp/client/router";
 import { createPortfolio, getPortfolios, useQuery } from "wasp/client/operations";
 import { gainClass, money, signedMoney, signedPct } from "./format";
+import "./portfolio.css";
 
-export function DashboardPage() {
+export function PortfolioHomePage() {
   const { data: portfolios, isLoading, error } = useQuery(getPortfolios);
 
   if (isLoading) return <p className="muted">Loading your portfolios…</p>;
@@ -20,7 +21,6 @@ export function DashboardPage() {
     <div className="dashboard">
       <div className="page-head">
         <div>
-          <p className="eyebrow">Your world</p>
           <h1>Portfolios</h1>
         </div>
       </div>
@@ -59,13 +59,6 @@ export function DashboardPage() {
 
         <NewPortfolioCard />
 
-        <div className="pcard pcard--soon" aria-disabled>
-          <div className="pcard-head">
-            <h2>Arcade</h2>
-            <span className="pill">Phase 2</span>
-          </div>
-          <p className="pcard-desc">Retro games and leaderboards are coming to your world soon.</p>
-        </div>
       </section>
     </div>
   );

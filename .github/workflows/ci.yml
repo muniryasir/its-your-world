@@ -49,7 +49,9 @@ jobs:
           bash scripts/ci-run.sh migrate wasp db migrate-dev --name ci-check
           # Fail if the schema changed without a committed migration.
           if [ -n "$(git status --porcelain migrations)" ]; then
-            echo "::error title=migrations::schema.prisma has changes without a committed migration. Run 'wasp db migrate-dev' and commit the migrations folder."
+            new=$(git status --porcelain migrations | awk '{print $2}' | head -1)
+            sql=$(cat "$new"/migration.sql "$new" 2>/dev/null | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=migrations::schema.prisma has changes without a committed migration. Generated SQL:%0A$sql"
             exit 1
           fi
 

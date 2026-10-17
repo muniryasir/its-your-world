@@ -63,6 +63,13 @@ export async function seedDemoData(prisma: PrismaClient) {
     console.log(`Created "${DEMO_USERNAME}" user.`);
   }
 
+  // The demo account has the Portfolio app added, so reviewers see a full world.
+  await prisma.userApp.upsert({
+    where: { userId_appId: { userId, appId: "portfolio" } },
+    update: {},
+    create: { userId, appId: "portfolio", position: 0 },
+  });
+
   for (const p of DEMO_PORTFOLIOS) {
     await prisma.portfolio.create({
       data: {

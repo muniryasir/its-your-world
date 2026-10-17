@@ -9,11 +9,34 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Shared across all modules (portfolio now, arcade later).
+// ============================================================================
+// World (shell) models. Owned by the world shell, see docs/apps.md.
+// ============================================================================
+
 model User {
   id         Int         @id @default(autoincrement())
+  apps       UserApp[]
+  // App relations
   portfolios Portfolio[]
 }
+
+// Which apps a user has added to their world.
+// Removing an app deletes this row only; the app's own data is kept.
+model UserApp {
+  id       Int      @id @default(autoincrement())
+  appId    String   // matches AppManifest.id, e.g. "portfolio"
+  position Int      @default(0)
+  addedAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   Int
+
+  @@unique([userId, appId])
+}
+
+// ============================================================================
+// Portfolio app models. Owned by the Portfolio app, see docs/apps.md.
+// ============================================================================
 
 model Portfolio {
   id          Int          @id @default(autoincrement())

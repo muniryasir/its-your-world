@@ -43,17 +43,41 @@ await step("landing page renders", async () => {
   await page.getByRole("heading", { name: "It's your world." }).waitFor({ timeout: 30000 });
 });
 
-await step("demo user can log in and see dashboard", async () => {
+await step("demo user logs in to their world", async () => {
   await page.goto(PUBLIC + "/login", { waitUntil: "load" });
   await page.locator('input[name="username"]').fill("demo");
   await page.locator('input[name="password"]').fill("demo1234");
   await page.locator('button[type="submit"], input[type="submit"]').first().click();
-  await page.getByText("Long-Term Growth").waitFor({ timeout: 30000 });
+  await page.getByRole("heading", { name: "Welcome to your world, demo." }).waitFor({ timeout: 30000 });
+  await page.getByRole("link", { name: "Open Portfolio" }).waitFor({ timeout: 30000 });
 });
 
-await step("portfolio page shows holdings", async () => {
+await step("Portfolio opens from the hub and shows holdings", async () => {
+  await page.getByRole("link", { name: "Open Portfolio" }).click();
+  await page.getByText("Long-Term Growth").waitFor({ timeout: 30000 });
   await page.getByText("Long-Term Growth").click();
   await page.getByText("NVIDIA Corp.").waitFor({ timeout: 30000 });
+});
+
+await step("new user sees an empty world and can add Portfolio", async () => {
+  await page.getByRole("button", { name: "Log out" }).click();
+  await page.goto(PUBLIC + "/signup", { waitUntil: "load" });
+  const u = "e2e" + Date.now();
+  await page.locator('input[name="username"]').fill(u);
+  await page.locator('input[name="password"]').fill("e2e-pass-123");
+  await page.locator('button[type="submit"], input[type="submit"]').first().click();
+  await page.getByText("Your world is empty").waitFor({ timeout: 30000 });
+
+  // An app's page is blocked until it's added
+  await page.goto(PUBLIC + "/portfolio", { waitUntil: "load" });
+  await page.getByRole("heading", { name: "Add Portfolio to your world" }).waitFor({ timeout: 30000 });
+
+  await page.goto(PUBLIC + "/world", { waitUntil: "load" });
+  await page.getByRole("button", { name: "Add an app" }).first().click();
+  await page.getByRole("button", { name: "Add Portfolio" }).click();
+  await page.getByRole("link", { name: "Open Portfolio" }).waitFor({ timeout: 30000 });
+  await page.getByRole("link", { name: "Open Portfolio" }).click();
+  await page.getByText("My portfolio").waitFor({ timeout: 30000 });
 });
 
 if (problems.length) console.log("Non-fatal browser messages:\n" + problems.join("\n"));

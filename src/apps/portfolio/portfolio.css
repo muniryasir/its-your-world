@@ -1,0 +1,71 @@
+/* Portfolio app styles. Owned by the Portfolio app (see docs/apps.md). */
+
+/* ---------- Dashboard ---------- */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.page-head .muted { margin: 6px 0 0; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.stat {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;
+}
+.stat-label { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+.stat-value { font-family: var(--font-display); font-size: 1.6rem; font-weight: 700; }
+.stat-value small { font-size: 0.9rem; font-weight: 500; }
+
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.pcard {
+  display: flex; flex-direction: column; gap: 6px; text-align: left;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 20px; box-shadow: var(--shadow); color: var(--ink);
+  transition: transform 0.12s ease, border-color 0.12s ease;
+  font: inherit;
+}
+a.pcard:hover { text-decoration: none; transform: translateY(-2px); border-color: var(--brand); }
+.pcard-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.pcard-desc { margin: 0; color: var(--ink-2); font-size: 0.9rem; }
+.pcard-value { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; margin-top: auto; padding-top: 12px; }
+.pcard-gain { font-size: 0.9rem; font-weight: 500; }
+.pcard--new {
+  align-items: center; justify-content: center; min-height: 170px; cursor: pointer;
+  background: transparent; border-style: dashed; box-shadow: none; color: var(--brand); font-weight: 600;
+}
+.pcard--new:hover { background: var(--surface); }
+.plus { font-size: 1.8rem; line-height: 1; }
+.pcard--form { gap: 12px; }
+.pcard--soon { background: transparent; border-style: dashed; box-shadow: none; color: var(--muted); }
+.pcard--soon h2 { color: var(--ink-2); }
+.pill {
+  display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+  background: var(--bg); border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap;
+}
+
+/* ---------- Portfolio detail ---------- */
+.backlink { display: inline-block; margin-bottom: 16px; font-weight: 500; }
+.allocation { margin-bottom: 24px; }
+.alloc-bar { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--line); gap: 2px; }
+.alloc-bar span { display: block; height: 100%; }
+.alloc-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 16px; padding: 0; margin: 10px 0 0; font-size: 0.85rem; }
+.alloc-legend li { display: flex; align-items: center; gap: 6px; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.panel-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;
+  padding: 16px 20px; border-bottom: 1px solid var(--line);
+}
+.empty-row { padding: 24px 20px; margin: 0; }
+.table-wrap { overflow-x: auto; }
+.holdings { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.holdings th {
+  text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); font-weight: 600; padding: 10px 20px; border-bottom: 1px solid var(--line);
+}
+.holdings td { padding: 12px 20px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.holdings tr:last-child td { border-bottom: none; }
+.holdings .r { text-align: right; }
+
+.invest-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; width: 100%; }
+.invest-form .full { grid-column: 1 / -1; }
+
+.empty-state { text-align: center; padding: 64px 0; display: grid; gap: 12px; justify-items: center; }
+

@@ -6,6 +6,9 @@ import type {
   CreateInvestment,
 } from "wasp/server/operations";
 import type { Investment, Portfolio } from "wasp/entities";
+import { requireAppAdded } from "../../world/requireApp";
+
+const APP_ID = "portfolio";
 
 // ---------------------------------------------------------------------------
 // Shapes sent to the client. Prisma Decimals are converted to plain numbers
@@ -77,11 +80,6 @@ function summarize(p: Portfolio, holdings: HoldingView[]): PortfolioSummary {
   };
 }
 
-function requireUser<T extends { user?: { id: number } }>(context: T) {
-  if (!context.user) throw new HttpError(401);
-  return context.user;
-}
-
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -90,7 +88,7 @@ export const getPortfolios: GetPortfolios<void, PortfolioSummary[]> = async (
   _args,
   context,
 ) => {
-  const user = requireUser(context);
+  const user = await requireAppAdded(context, APP_ID);
   const portfolios = await context.entities.Portfolio.findMany({
     where: { userId: user.id },
     include: { investments: true },
@@ -103,7 +101,7 @@ export const getPortfolio: GetPortfolio<{ id: number }, PortfolioDetail> = async
   { id },
   context,
 ) => {
-  const user = requireUser(context);
+  const user = await requireAppAdded(context, APP_ID);
   // Ownership is part of the WHERE clause. Someone else's portfolio looks
   // exactly like a portfolio that doesn't exist (404, not 403), so we don't
   // leak which IDs exist.
@@ -124,7 +122,7 @@ export const createPortfolio: CreatePortfolio<
   { name: string; description?: string },
   { id: number }
 > = async ({ name, description }, context) => {
-  const user = requireUser(context);
+  const user = await requireAppAdded(context, APP_ID);
   const trimmed = (name ?? "").trim();
   if (!trimmed) throw new HttpError(400, "Portfolio name is required");
   if (trimmed.length > 80) throw new HttpError(400, "Portfolio name is too long");
@@ -153,7 +151,7 @@ export const createInvestment: CreateInvestment<NewInvestment, { id: number }> =
   args,
   context,
 ) => {
-  const user = requireUser(context);
+  const user = await requireAppAdded(context, APP_ID);
 
   const portfolio = await context.entities.Portfolio.findFirst({
     where: { id: args.portfolioId, userId: user.id },
