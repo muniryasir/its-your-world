@@ -44,7 +44,7 @@ When you're done, stop the codespace (**Codespaces → ⋯ → Stop**) so it doe
 | Backend | Node.js, Wasp queries and actions |
 | Database | PostgreSQL 16 via Prisma |
 | Auth | Wasp built-in username/password, server-side sessions |
-| Dev env | GitHub Codespaces (dev container + Postgres) or WSL2 |
+| Dev env | GitHub Codespaces (single dev container with Postgres) or WSL2 |
 | CI | GitHub Actions: compile, migrate, seed, build, auth/ownership smoke test |
 
 ## How it's organized

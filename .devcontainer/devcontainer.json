@@ -1,8 +1,6 @@
 {
   "name": "It's Your World",
-  "dockerComposeFile": "docker-compose.yml",
-  "service": "app",
-  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "24" }
   },
@@ -13,7 +11,7 @@
     "5432": { "label": "Postgres", "onAutoForward": "silent" }
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
-  "postStartCommand": "bash .devcontainer/env.sh",
+  "postStartCommand": "bash .devcontainer/start-db.sh",
   "postAttachCommand": "wasp start",
   "customizations": {
     "vscode": {

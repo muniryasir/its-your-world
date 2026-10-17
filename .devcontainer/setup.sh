@@ -3,6 +3,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+echo "==> Installing PostgreSQL"
+sudo apt-get update -qq
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql >/dev/null
+bash .devcontainer/start-db.sh
+sudo -u postgres psql -qc "ALTER USER postgres PASSWORD 'postgres';"
+sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='itsyourworld'" | grep -q 1 \
+  || sudo -u postgres createdb itsyourworld
+
 echo "==> Installing Wasp CLI"
 npm install -g @wasp.sh/wasp-cli@0.26.0
 
@@ -11,12 +19,6 @@ bash .devcontainer/env.sh
 
 echo "==> Installing dependencies"
 wasp install
-
-echo "==> Waiting for Postgres"
-for i in $(seq 1 30); do
-  (echo > /dev/tcp/db/5432) >/dev/null 2>&1 && break
-  sleep 1
-done
 
 echo "==> Applying database migrations"
 wasp db migrate-dev

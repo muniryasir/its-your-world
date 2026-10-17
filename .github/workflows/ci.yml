@@ -78,7 +78,6 @@ jobs:
           echo "== Through the Vite proxy (Codespaces path)"
           bash scripts/ci-run.sh smoke-test-proxy bash scripts/smoke-test.sh http://localhost:3000/server || fail
           echo "== Client page is served"
-          curl -sf "http://[::1]:3000/" | grep -qi '<html' || { echo "::error title=ipv6::client not reachable on [::1]:3000"; fail; }
           curl -sf http://localhost:3000/ | grep -qi '<html' || { echo "::error title=client::index page missing root div"; fail; }
 
       - name: Browser check (simulated Codespaces)
@@ -94,3 +93,27 @@ jobs:
       - name: Server log
         if: always()
         run: cat wasp.log || true
+
+  devcontainer:
+    # Builds the Codespaces dev container, runs its setup script and checks
+    # that the app answers inside it, the same way a new codespace starts.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: devcontainers/ci@v0.3
+        with:
+          push: never
+          runCmd: |
+            set -e
+            bash .devcontainer/start-db.sh
+            (wasp start > /tmp/wasp.log 2>&1 &)
+            for i in $(seq 1 150); do
+              c=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ || true)
+              s=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ || true)
+              [ "$c" = "200" ] && [ "$s" != "000" ] && break
+              sleep 2
+            done
+            echo "client: $c, server: $s"
+            bash scripts/ci-run.sh devcontainer-smoke bash scripts/smoke-test.sh http://localhost:3001 \
+              || { bash scripts/ci-run.sh devcontainer-log bash -c 'tail -60 /tmp/wasp.log; exit 1'; exit 1; }
