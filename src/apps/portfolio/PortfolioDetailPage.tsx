@@ -114,7 +114,7 @@ function HoldingsTable({ portfolio }: { portfolio: PortfolioDetail }) {
           <tr>
             <th>Asset</th>
             <th className="hide-sm">Class</th>
-            <th className="r">Quantity</th>
+            <th className="r hide-sm">Quantity</th>
             <th className="r hide-sm">Avg cost</th>
             <th className="r">Price</th>
             <th className="r">Value</th>
@@ -131,11 +131,11 @@ function HoldingsTable({ portfolio }: { portfolio: PortfolioDetail }) {
                 <div className="muted small">{h.symbol}</div>
               </td>
               <td className="hide-sm"><span className={`pill pill--${h.assetClass}`}>{assetClassName(h.assetClass)}</span></td>
-              <td className="r num">{quantity(Number(h.quantity.toFixed(6)))}</td>
+              <td className="r num hide-sm">{quantity(Number(h.quantity.toFixed(6)))}</td>
               <td className="r num hide-sm">{price(h.avgCost, h.decimals)}</td>
               <td className="r num">
                 {price(h.price, h.decimals)}
-                <div className={`small ${gainClass(h.changePct)}`}>{signedPct(h.changePct)} today</div>
+                <div className={`small ${gainClass(h.changePct)}`}><span className="nowrap">{signedPct(h.changePct)} today</span></div>
               </td>
               <td className="r num">
                 {money(h.marketValue)}
@@ -163,7 +163,7 @@ function TradesTable({ portfolio }: { portfolio: PortfolioDetail }) {
             <tr>
               <th>Date</th>
               <th>Trade</th>
-              <th className="r">Quantity</th>
+              <th className="r hide-sm">Quantity</th>
               <th className="r hide-sm">Price</th>
               <th className="r">Total</th>
               <th className="r hide-sm">Realized</th>
@@ -172,11 +172,11 @@ function TradesTable({ portfolio }: { portfolio: PortfolioDetail }) {
           <tbody>
             {portfolio.trades.map((t) => (
               <tr key={t.id}>
-                <td className="muted num">{shortDate(t.createdAt)}</td>
+                <td className="muted num nowrap">{shortDate(t.createdAt)}</td>
                 <td>
                   <span className={`side side--${t.side.toLowerCase()}`}>{t.side === "BUY" ? "Buy" : "Sell"}</span> {t.name}
                 </td>
-                <td className="r num">{quantity(Number(t.quantity.toFixed(6)))}</td>
+                <td className="r num hide-sm">{quantity(Number(t.quantity.toFixed(6)))}</td>
                 <td className="r num hide-sm">{money(t.price)}</td>
                 <td className="r num">{money(t.total)}</td>
                 <td className={`r num hide-sm ${t.realizedGain === null ? "muted" : gainClass(t.realizedGain)}`}>

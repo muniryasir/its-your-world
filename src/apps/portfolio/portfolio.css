@@ -113,6 +113,7 @@ a.pcard:hover { text-decoration: none; transform: translateY(-2px); border-color
 .data-table .r { text-align: right; }
 .data-table .rank { width: 32px; padding-right: 0; }
 .row-link { cursor: pointer; }
+.nowrap { white-space: nowrap; }
 .row-link:hover td { background: #faf9f5; }
 .asset-link { color: var(--ink); font-weight: 600; }
 .side { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 1px 7px; border-radius: 6px; margin-right: 4px; }
