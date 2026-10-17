@@ -3,8 +3,8 @@ import type { AppManifest } from "../../world/types";
 export const portfolioManifest: AppManifest = {
   id: "portfolio",
   name: "Portfolio",
-  tagline: "Manage your investments",
-  description: "Create portfolios, add your holdings and see value and gain or loss at a glance.",
+  tagline: "Invest demo cash, track returns",
+  description: "Invest demo cash in oil, crypto, US stocks and metals. Build portfolios, buy and sell, and track value and returns.",
   status: "live",
   color: "#2ed3a0",
   basePath: "/portfolio",

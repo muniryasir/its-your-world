@@ -39,33 +39,54 @@ model UserApp {
 // ============================================================================
 
 model Portfolio {
-  id          Int          @id @default(autoincrement())
-  name        String
-  description String?
-  createdAt   DateTime     @default(now())
+  id           Int       @id @default(autoincrement())
+  name         String
+  description  String?
+  // Demo cash: every portfolio starts with virtual money to invest.
+  startingCash Decimal   @default(100000) @db.Decimal(20, 4)
+  cash         Decimal   @default(100000) @db.Decimal(20, 4)
+  createdAt    DateTime  @default(now())
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      Int
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       Int
 
-  investments Investment[]
+  holdings     Holding[]
+  trades       Trade[]
 
   @@index([userId])
 }
 
-model Investment {
+// What a portfolio currently owns of one asset. `symbol` refers to the market
+// catalog (src/apps/portfolio/market/catalog.ts). Average-cost accounting:
+// costBasis is the total paid for the units still held.
+model Holding {
+  id          Int       @id @default(autoincrement())
+  symbol      String
+  quantity    Decimal   @db.Decimal(20, 8)
+  costBasis   Decimal   @db.Decimal(20, 4)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  portfolioId Int
+
+  @@unique([portfolioId, symbol])
+}
+
+// Every buy and sell, kept as history. Price is the simulated price at the time.
+model Trade {
   id           Int       @id @default(autoincrement())
   symbol       String
-  name         String
-  assetType    String    // e.g. "Stock", "ETF", "Crypto", "Bond"
-  // Decimal, not Float, so money totals don't drift.
+  side         String    // "BUY" or "SELL"
   quantity     Decimal   @db.Decimal(20, 8)
-  buyPrice     Decimal   @db.Decimal(20, 4)
-  // No live market data yet: current price is entered manually / seeded.
-  currentPrice Decimal   @db.Decimal(20, 4)
+  price        Decimal   @db.Decimal(20, 8)
+  total        Decimal   @db.Decimal(20, 4)
+  // Sells only: proceeds minus the average cost of the units sold.
+  realizedGain Decimal?  @db.Decimal(20, 4)
   createdAt    DateTime  @default(now())
 
   portfolio    Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
   portfolioId  Int
 
-  @@index([portfolioId])
+  @@index([portfolioId, createdAt])
 }

@@ -10,15 +10,15 @@ export function PortfolioTile() {
   if (isLoading) return <p className="tile-muted">Loading…</p>;
   if (error || !data) return <p className="tile-muted">Couldn't load your portfolios.</p>;
 
-  const value = data.reduce((s, p) => s + p.marketValue, 0);
-  const cost = data.reduce((s, p) => s + p.costBasis, 0);
-  const gain = value - cost;
+  const value = data.reduce((s, p) => s + p.totalValue, 0);
+  const started = data.reduce((s, p) => s + p.startingCash, 0);
+  const gain = value - started;
   const holdings = data.reduce((s, p) => s + p.holdingsCount, 0);
 
   if (holdings === 0) {
     return (
       <p className="tile-muted">
-        {data.length === 1 ? "1 portfolio" : `${data.length} portfolios`}, no holdings yet. Open it to add your first investment.
+        {money(data.reduce((s, p) => s + p.cash, 0))} of demo cash, nothing invested yet. Open it to explore the markets.
       </p>
     );
   }
@@ -30,9 +30,9 @@ export function PortfolioTile() {
         <span className="tile-value">{money(value)}</span>
       </div>
       <div>
-        <span className="tile-label">Gain / loss</span>
+        <span className="tile-label">Return</span>
         <span className={`tile-value tile-value--sm tile-${gainClass(gain)}`}>
-          {signedMoney(gain)} <small>{signedPct(cost === 0 ? 0 : (gain / cost) * 100)}</small>
+          {signedMoney(gain)} <small>{signedPct(started === 0 ? 0 : (gain / started) * 100)}</small>
         </span>
       </div>
       <div>

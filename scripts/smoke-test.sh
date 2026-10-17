@@ -7,6 +7,8 @@
 #   4. users can't read or change another user's portfolio (404)
 #   5. removing an app blocks access again but keeps the data
 #   6. requests without a session are rejected (401)
+#   7. Portfolio market + trading: prices come from the server, cash and
+#      holdings can't be overspent, other users' portfolios are 404
 set -euo pipefail
 API="${1:-http://localhost:3001}"
 pass() { echo "PASS  $1"; }
@@ -50,6 +52,8 @@ out=$(op get-my-apps "$NEW" null); [[ "$out" == "200 "*'"json":[]'* ]] || fail "
 pass "new user starts with an empty world"
 out=$(op get-portfolios "$NEW" null); expect 403 "$out" "portfolio data is blocked before adding the app"
 out=$(op create-portfolio "$NEW" '{"name":"x"}'); expect 403 "$out" "portfolio actions are blocked before adding the app"
+out=$(op get-market "$NEW" null); expect 403 "$out" "market data is blocked before adding the app"
+out=$(op buy-asset "$NEW" '{"portfolioId":1,"symbol":"BTC","amount":10}'); expect 403 "$out" "trading is blocked before adding the app"
 
 out=$(op add-app "$NEW" '{"appId":"arcade"}'); expect 400 "$out" "coming-soon apps can't be added"
 out=$(op add-app "$NEW" '{"appId":"not-an-app"}'); expect 400 "$out" "unknown apps can't be added"
@@ -59,10 +63,55 @@ out=$(op get-portfolios "$NEW" null); expect 200 "$out" "portfolio data opens af
 [[ "$out" == *'"name":"My portfolio"'* ]] || fail "adding Portfolio should create 'My portfolio': $out"
 pass "adding Portfolio creates a starter portfolio"
 
+# --- market --------------------------------------------------------------------
+out=$(op get-market "$NEW" null); expect 200 "$out" "market loads after adding the app"
+n=$(echo "$out" | grep -oE '"symbol":' | wc -l); [ "$n" -eq 40 ] || fail "market should list 40 assets, got $n"
+pass "market lists 40 assets"
+for c in oil crypto stocks metals; do
+  out=$(op get-market "$NEW" "{\"assetClass\":\"$c\"}")
+  n=$(echo "$out" | grep -oE '"symbol":' | wc -l); [ "$n" -eq 10 ] || fail "$c should list 10 assets, got $n"
+done
+pass "each asset class lists its top 10"
+out=$(op get-market "$NEW" '{"assetClass":"bonds"}'); expect 400 "$out" "unknown asset classes are rejected"
+out=$(op get-asset "$NEW" '{"symbol":"BTC"}'); expect 200 "$out" "asset detail loads"
+[[ "$out" == *'"history":'* && "$out" == *'"marketCap":'* ]] || fail "asset detail should include history and market cap: ${out:0:200}"
+pass "asset detail includes history and stats"
+out=$(op get-asset "$NEW" '{"symbol":"NOPE"}'); expect 404 "$out" "unknown assets return 404"
+out=$(op create-portfolio "$NEW" '{"name":"Tiny","startingCash":50}'); expect 400 "$out" "starting cash below the minimum is rejected"
+
+# --- trading -------------------------------------------------------------------
+out=$(op get-portfolios "$NEW" null)
+NEW_PID=$(echo "$out" | grep -oE '"id":[0-9]+' | head -1 | cut -d: -f2)
+out=$(op buy-asset "$NEW" "{\"portfolioId\":$NEW_PID,\"symbol\":\"BTC\",\"amount\":1000,\"price\":1}")
+expect 200 "$out" "user can buy an asset with demo cash"
+total=$(echo "$out" | grep -oE '"total":[0-9.]+' | cut -d: -f2)
+awk -v t="$total" 'BEGIN { exit !(t > 990 && t <= 1000) }' || fail "a \$1000 buy should cost about \$1000 at the server's price (got $total)"
+pass "trades use the server's price, not one sent by the client"
+out=$(op get-portfolio "$NEW" "{\"id\":$NEW_PID}")
+[[ "$out" == *'"symbol":"BTC"'* ]] || fail "bought asset should appear in holdings: ${out:0:200}"
+[[ "$out" == *'"side":"BUY"'* ]] || fail "buy should appear in trade history: ${out:0:200}"
+pass "holding and trade history are updated"
+out=$(op buy-asset "$NEW" "{\"portfolioId\":$NEW_PID,\"symbol\":\"BTC\",\"amount\":100000000}"); expect 400 "$out" "can't spend more cash than the portfolio has"
+out=$(op buy-asset "$NEW" "{\"portfolioId\":$NEW_PID,\"symbol\":\"BTC\",\"amount\":-5}"); expect 400 "$out" "negative amounts are rejected"
+out=$(op buy-asset "$NEW" "{\"portfolioId\":$NEW_PID,\"symbol\":\"BTC\",\"amount\":5,\"quantity\":1}"); expect 400 "$out" "amount and quantity together are rejected"
+out=$(op buy-asset "$NEW" "{\"portfolioId\":$NEW_PID,\"symbol\":\"NOPE\",\"amount\":5}"); expect 404 "$out" "buying an unknown asset returns 404"
+out=$(op sell-asset "$NEW" "{\"portfolioId\":$NEW_PID,\"symbol\":\"BTC\",\"quantity\":1000}"); expect 400 "$out" "can't sell more than the portfolio holds"
+out=$(op sell-asset "$NEW" "{\"portfolioId\":$NEW_PID,\"symbol\":\"ETH\",\"quantity\":1}"); expect 400 "$out" "can't sell an asset the portfolio doesn't hold"
+out=$(op sell-asset "$NEW" "{\"portfolioId\":$NEW_PID,\"symbol\":\"BTC\",\"all\":true}"); expect 200 "$out" "user can sell a whole holding"
+out=$(op get-portfolio "$NEW" "{\"id\":$NEW_PID}")
+[[ "$out" == *'"holdings":[]'* ]] || fail "selling everything should close the holding: ${out:0:200}"
+[[ "$out" == *'"side":"SELL"'* ]] || fail "sell should appear in trade history: ${out:0:200}"
+pass "selling everything closes the holding"
+
 # --- ownership ---------------------------------------------------------------
 out=$(op get-portfolio "$NEW" "{\"id\":$DEMO_PID}"); expect 404 "$out" "other users' portfolios return 404"
-out=$(op create-investment "$NEW" "{\"portfolioId\":$DEMO_PID,\"symbol\":\"X\",\"name\":\"X\",\"assetType\":\"Stock\",\"quantity\":1,\"buyPrice\":1,\"currentPrice\":1}")
-expect 404 "$out" "other users can't add investments to someone else's portfolio"
+out=$(op buy-asset "$NEW" "{\"portfolioId\":$DEMO_PID,\"symbol\":\"BTC\",\"amount\":10}")
+expect 404 "$out" "other users can't buy in someone else's portfolio"
+out=$(op sell-asset "$NEW" "{\"portfolioId\":$DEMO_PID,\"symbol\":\"AAPL\",\"all\":true}")
+expect 404 "$out" "other users can't sell from someone else's portfolio"
+out=$(op get-asset "$NEW" '{"symbol":"AAPL"}')
+[[ "$out" != *'"portfolioName":"Long-Term Growth"'* ]] || fail "asset detail must not show other users' positions"
+pass "asset detail only shows the user's own positions"
 
 # --- remove / re-add -----------------------------------------------------------
 out=$(op remove-app "$NEW" '{"appId":"portfolio"}'); expect 200 "$out" "user can remove Portfolio"
@@ -75,6 +124,8 @@ pass "re-adding keeps the data without duplicates"
 
 # --- anonymous ---------------------------------------------------------------
 out=$(op get-portfolios "" null); expect 401 "$out" "anonymous portfolio requests are rejected"
+out=$(op get-market "" null); expect 401 "$out" "anonymous market requests are rejected"
+out=$(op buy-asset "" '{"portfolioId":1,"symbol":"BTC","amount":10}'); expect 401 "$out" "anonymous users can't trade"
 out=$(op get-my-apps "" null); expect 401 "$out" "anonymous world requests are rejected"
 out=$(op add-app "" '{"appId":"portfolio"}'); expect 401 "$out" "anonymous users can't add apps"
 
