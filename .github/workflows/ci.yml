@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: itsyourworld
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Wasp CLI
+        run: npm install -g @wasp.sh/wasp-cli@0.26.0 && wasp version
+
+      - name: Write env files
+        run: bash .devcontainer/env.sh
+
+      - name: Install dependencies
+        run: wasp install
+
+      - name: Compile (type-checks the app)
+        run: wasp compile
+
+      - name: Apply migrations
+        run: |
+          if [ -d migrations ]; then wasp db migrate-dev; else wasp db migrate-dev --name init; fi
+          echo "----- migration SQL -----"
+          cat migrations/*/migration.sql
+
+      - name: Seed demo data
+        run: wasp db seed
+
+      - name: Production build
+        run: wasp build
+
+      - name: Smoke test (auth + ownership)
+        run: |
+          (wasp start > wasp.log 2>&1 &)
+          for i in $(seq 1 90); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ || true)
+            [ "$code" != "000" ] && break
+            sleep 2
+          done
+          bash scripts/smoke-test.sh http://localhost:3001
+
+      - name: Server log
+        if: always()
+        run: cat wasp.log || true

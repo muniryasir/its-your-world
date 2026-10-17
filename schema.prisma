@@ -1,0 +1,48 @@
+datasource db {
+  provider = "postgresql"
+  // Wasp requires that the url is set to the DATABASE_URL environment variable.
+  url      = env("DATABASE_URL")
+}
+
+// Wasp requires the `prisma-client-js` generator to be present.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Shared across all modules (portfolio now, arcade later).
+model User {
+  id         Int         @id @default(autoincrement())
+  portfolios Portfolio[]
+}
+
+model Portfolio {
+  id          Int          @id @default(autoincrement())
+  name        String
+  description String?
+  createdAt   DateTime     @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+
+  investments Investment[]
+
+  @@index([userId])
+}
+
+model Investment {
+  id           Int       @id @default(autoincrement())
+  symbol       String
+  name         String
+  assetType    String    // e.g. "Stock", "ETF", "Crypto", "Bond"
+  // Decimal, not Float, so money totals don't drift.
+  quantity     Decimal   @db.Decimal(20, 8)
+  buyPrice     Decimal   @db.Decimal(20, 4)
+  // No live market data yet: current price is entered manually / seeded.
+  currentPrice Decimal   @db.Decimal(20, 4)
+  createdAt    DateTime  @default(now())
+
+  portfolio    Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  portfolioId  Int
+
+  @@index([portfolioId])
+}
