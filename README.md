@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/muniryasir/its-your-world/actions/workflows/ci.yml/badge.svg)](https://github.com/muniryasir/its-your-world/actions/workflows/ci.yml)
 
-**One login, your whole world.** It's Your World is a personal hub that brings separate experiences together under a single account. The first module is an **investment portfolio tracker**. A **retro game arcade** comes next.
+**One login, your whole world.** It's Your World is a personal hub that brings separate experiences together under a single account. The first module is an **investment portfolio simulator**: invest demo cash in oil, crypto, US stocks and metals. A **retro game arcade** comes next.
 
 > Demo login: **`demo` / `demo1234`**
 
@@ -26,15 +26,16 @@ When you're done, stop the codespace (**Codespaces → ⋯ → Stop**) so it doe
 |---|---|
 | Sign up / log in / log out (username + password) | ✅ |
 | Your world hub: add/remove apps, app tiles with summaries | ✅ |
-| Portfolio app: portfolios as cards with totals | ✅ |
-| Create portfolios | ✅ |
-| Holdings table per portfolio, with gain/loss and allocation bar | ✅ |
-| Add investments to a portfolio | ✅ |
+| Portfolio app: portfolios with demo cash, total value and return | ✅ |
+| Markets: top 10 assets in Oil & Energy, Crypto, US Stocks and Metals | ✅ |
+| Asset detail: price chart (1M–1Y), key stats, about, your position | ✅ |
+| Buy (by dollar amount or quantity) and sell (some or all) | ✅ |
+| Holdings with average cost and gain/loss, allocation by asset class, trade history | ✅ |
 | Seeded demo account | ✅ |
 | App access and ownership enforced on the server (403 / 404) | ✅ (covered by CI smoke test) |
 | Arcade module | ⏸ Phase 2 |
-| Live market prices | ⏸ Phase 2 (prices are manual / sample data) |
-| Charts, export, admin | ⏸ Phase 3 |
+| Live market prices | ⏸ Phase 2 (prices are simulated demo data) |
+| CSV export, admin panel | ⏸ Phase 3 |
 
 ## Tech stack
 
@@ -61,7 +62,7 @@ src/
   apps/
     portfolio/            Portfolio app (pages, server operations, hub tile, own spec file)
     arcade/               Arcade manifest (coming soon)
-  db/seed.ts              Demo user + sample portfolios
+  db/seed.ts              Demo user + sample portfolios (trades replayed at past demo prices)
 scripts/smoke-test.sh     Server security checks (auth, app access, ownership), run by CI
 e2e/                      Real-browser checks and design screenshots, run by CI
 docs/apps.md              How apps plug into the world, and the rules they follow
@@ -72,7 +73,8 @@ docs/apps.md              How apps plug into the world, and the rules they follo
 - **Apps are modules, not separate deployments.** "Adding an app" creates a `UserApp` row; the code already ships. Each app has a manifest, its own Wasp spec file, a hub tile and optional setup hooks (see `docs/apps.md`).
 - **Access is enforced on the server.** Every app operation checks that the user is logged in (401) and has added the app (403). Every record is fetched with the user's id in the query, and other users' records answer exactly like missing ones (404).
 - **Removing an app keeps its data**, so adding it back restores everything.
-- **Money is stored as `Decimal`**, not floating point. **No live prices yet**: each holding has a manually entered current price.
+- **Money is stored and calculated as `Decimal`**, not floating point. Trades run in a transaction that locks the portfolio row, so two trades can't spend the same cash.
+- **Prices are simulated (demo data).** `src/apps/portfolio/market/` holds the catalog of 40 real assets and a deterministic, mean-reverting random walk that gives each one a new closing price every day. The same day always gives the same price, so nothing has to be stored. Trades always use the server's price, never one sent by the browser. Swapping in live data later only touches `market/`.
 
 ## Run locally (WSL2 / Linux / macOS)
 
@@ -92,5 +94,5 @@ wasp start            # http://localhost:3000
 ## Roadmap
 
 - **Phase 2:** Arcade module (modded classic games, leaderboards, rewards tied to portfolio activity) and live market prices
-- **Phase 3:** Charts, CSV export, admin panel
+- **Phase 3:** CSV export, admin panel for the market catalog
 - Public deployment

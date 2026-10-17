@@ -20,7 +20,9 @@ await page.route(`${PUBLIC}/**`, async (route) => {
     await route.abort();
   }
 });
-page.on("console", (m) => { if (m.type() === "error") problems.push(`console: ${m.text()}`); });
+// Vite's dev websocket can't connect through the simulated Codespaces host; that's expected noise.
+const noise = /WebSocket|\[vite\]|your current setup|<--\[|Check out your Vite/;
+page.on("console", (m) => { if (m.type() === "error" && !noise.test(m.text())) problems.push(`console: ${m.text()}`); });
 page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
 page.on("requestfailed", (r) => problems.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`));
 page.on("response", (r) => { if (r.status() >= 400) problems.push(`HTTP ${r.status()}: ${r.url()}`); });
@@ -30,8 +32,10 @@ async function step(name, fn) {
     await fn();
     console.log(`PASS  ${name}`);
   } catch (e) {
-    const body = await page.evaluate(() => document.documentElement.outerHTML.slice(0, 1500)).catch(() => "(no page)");
-    console.log(`FAIL  ${name}: ${e.message}\n--- problems ---\n${problems.join("\n")}\n--- html ---\n${body}`);
+    const body = await page.evaluate(() => location.pathname + "\n" + document.body.innerText.slice(0, 1200)).catch(() => "(no page)");
+    // FAIL goes last: CI keeps only the tail of the output in its annotation.
+    console.log(`--- page text ---\n${body}\n--- problems ---\n${problems.slice(-15).join("\n")}`);
+    console.log(`FAIL  ${name}: ${e.message.slice(0, 1500)}`);
     await browser.close();
     process.exit(1);
   }
@@ -75,7 +79,7 @@ await step("Portfolio opens from the hub and shows holdings", async () => {
   await page.getByRole("link", { name: "Open Portfolio" }).click();
   await page.getByText("Long-Term Growth").waitFor({ timeout: 30000 });
   await page.getByText("Long-Term Growth").click();
-  await page.getByText("NVIDIA Corp.").waitFor({ timeout: 30000 });
+  await page.getByRole("link", { name: "NVIDIA Corp." }).waitFor({ timeout: 30000 });
 });
 
 await step("new user sees an empty world and can add Portfolio", async () => {
@@ -97,6 +101,50 @@ await step("new user sees an empty world and can add Portfolio", async () => {
   await page.getByRole("link", { name: "Open Portfolio" }).waitFor({ timeout: 30000 });
   await page.getByRole("link", { name: "Open Portfolio" }).click();
   await page.getByText("My portfolio").waitFor({ timeout: 30000 });
+});
+
+await step("markets list the top 10 of each asset class", async () => {
+  await page.goto(PUBLIC + "/portfolio/markets", { waitUntil: "load" });
+  await page.getByRole("heading", { name: "Markets" }).waitFor({ timeout: 30000 });
+  await page.getByRole("link", { name: "Brent Crude" }).waitFor({ timeout: 30000 });
+  await page.getByRole("tab", { name: "Crypto" }).click();
+  await page.getByRole("link", { name: "Bitcoin" }).waitFor({ timeout: 30000 });
+  const rows = await page.locator(".market-table tbody tr").count();
+  if (rows !== 10) throw new Error(`expected 10 crypto rows, got ${rows}`);
+});
+
+await step("new user buys and sells Bitcoin with demo cash", async () => {
+  await page.getByRole("link", { name: "Bitcoin" }).click();
+  await page.getByRole("heading", { name: "Bitcoin", exact: true }).waitFor({ timeout: 30000 });
+  await page.getByRole("heading", { name: "Key stats" }).waitFor();
+  await page.locator('input[name="trade-value"]').fill("2500");
+  await page.getByRole("button", { name: "Buy BTC" }).click();
+  await page.getByText(/^Bought .* BTC for/).waitFor({ timeout: 15000 });
+  await page.getByRole("heading", { name: "Your position" }).waitFor({ timeout: 15000 });
+
+  await page.getByRole("tab", { name: "Sell" }).click();
+  await page.getByRole("button", { name: "Sell all" }).click();
+  await page.getByText(/^Sold .* BTC for/).waitFor({ timeout: 15000 });
+
+  await page.getByRole("tab", { name: "Buy" }).click();
+  await page.locator('input[name="trade-value"]').fill("1000");
+  await page.getByRole("button", { name: "Buy BTC" }).click();
+  await page.getByText(/^Bought .* BTC for/).waitFor({ timeout: 15000 });
+});
+
+await step("the portfolio shows the holding and the trade history", async () => {
+  await page.goto(PUBLIC + "/portfolio", { waitUntil: "load" });
+  await page.getByText("My portfolio").click();
+  await page.getByRole("heading", { name: "Holdings" }).waitFor({ timeout: 30000 });
+  await page.locator(".holdings").getByRole("link", { name: "Bitcoin" }).waitFor({ timeout: 30000 });
+  await page.getByRole("heading", { name: "Recent activity" }).waitFor();
+  const trades = await page.locator(".trades tbody tr").count();
+  if (trades !== 3) throw new Error(`expected 3 trades, got ${trades}`);
+});
+
+await step("an unknown asset shows a friendly not-found page", async () => {
+  await page.goto(PUBLIC + "/portfolio/markets/NOPE", { waitUntil: "load" });
+  await page.getByRole("heading", { name: "Asset not found" }).waitFor({ timeout: 30000 });
 });
 
 if (problems.length) console.log("Non-fatal browser messages:\n" + problems.join("\n"));

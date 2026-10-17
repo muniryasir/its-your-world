@@ -11,20 +11,33 @@ You're taking over the **Portfolio app** inside It's Your World. Another chat ow
 
 ## What already exists
 
-The Portfolio app works end to end and follows the app contract:
+The Portfolio app is a **simulator**: each portfolio gets demo cash (default $100,000) to invest in 40 assets across four asset classes, at simulated daily prices.
 
 | File | What it is |
 |---|---|
 | `src/apps/portfolio/manifest.ts` | id `portfolio`, basePath `/portfolio`, status `live` |
-| `src/apps/portfolio/portfolio.wasp.ts` | routes `/portfolio`, `/portfolio/:id`; queries `getPortfolios`, `getPortfolio`; actions `createPortfolio`, `createInvestment` |
-| `src/apps/portfolio/operations.ts` | server logic; every operation calls `requireAppAdded` and scopes by `userId` |
-| `src/apps/portfolio/PortfolioHomePage.tsx` | list of portfolios with totals, create-portfolio form |
-| `src/apps/portfolio/PortfolioDetailPage.tsx` | holdings table, allocation bar, add-investment form |
-| `src/apps/portfolio/PortfolioTile.tsx` | summary on the user's hub (total value, gain/loss, count) |
-| `src/apps/portfolio/onAdd.ts` | creates "My portfolio" when a user first adds the app |
+| `src/apps/portfolio/portfolio.wasp.ts` | routes `/portfolio`, `/portfolio/markets`, `/portfolio/markets/:symbol`, `/portfolio/:id`; queries `getMarket`, `getAsset`, `getPortfolios`, `getPortfolio`; actions `createPortfolio`, `buyAsset`, `sellAsset` |
+| `src/apps/portfolio/operations.ts` | server logic; every operation calls `requireAppAdded` and scopes by `userId`; trades lock the portfolio row |
+| `src/apps/portfolio/market/catalog.ts` | the 40 assets (10 per class): name, unit, base price, volatility, facts, supply |
+| `src/apps/portfolio/market/prices.ts` | deterministic daily price simulation: `quote`, `history`, `closeOn` |
+| `src/apps/portfolio/assetClasses.ts` | the four classes and their chart colors (shared by client and server) |
+| `src/apps/portfolio/PortfolioHomePage.tsx` | totals across portfolios, combined allocation, portfolio cards, create form (with starting cash), market links |
+| `src/apps/portfolio/MarketsPage.tsx` | tabs per asset class, top 10 table with price, 1-day change, 30-day sparkline |
+| `src/apps/portfolio/AssetPage.tsx` | asset detail: price chart, key stats, about, your position, buy/sell panel |
+| `src/apps/portfolio/PortfolioDetailPage.tsx` | value/return/cash stats, allocation, holdings table, recent trades |
+| `src/apps/portfolio/charts.tsx` | SVG sparkline, price chart (hover tooltip), allocation bar |
+| `src/apps/portfolio/PortfolioTile.tsx` | summary on the user's hub (total value, return, count) |
+| `src/apps/portfolio/onAdd.ts` | creates "My portfolio" (with default demo cash) when a user first adds the app |
 | `src/apps/portfolio/portfolio.css`, `format.ts` | styles and number formatting |
-| `schema.prisma` → "Portfolio app models" section | `Portfolio`, `Investment` (money stored as `Decimal`) |
-| `src/db/seed.ts` | demo account `demo` / `demo1234` with 3 portfolios and Portfolio added |
+| `schema.prisma` → "Portfolio app models" section | `Portfolio` (with `startingCash`, `cash`), `Holding` (average cost), `Trade` (money stored as `Decimal`) |
+| `src/db/seed.ts` | demo account `demo` / `demo1234` with 3 portfolios whose trades are replayed at past demo prices |
+
+### Terms
+
+- **Asset class:** Oil & Energy, Crypto, US Stocks, Metals.
+- **Asset:** one thing in the market catalog (Brent Crude, Bitcoin, Apple, Gold).
+- **Holding:** what a portfolio owns of one asset (quantity and cost basis).
+- **Trade:** one buy or sell, kept as history.
 
 ## What's yours to change, and what isn't
 
@@ -56,9 +69,9 @@ The security rules in `docs/apps.md` apply to every new operation:
 
 ## Suggested backlog (confirm priorities with Yasir before starting)
 
-1. **Edit and delete** investments and portfolios (with confirmation; keep ownership checks).
-2. **Update current prices** inline, so gain/loss stays meaningful without live data.
+1. **Rename and delete** portfolios (with confirmation; keep ownership checks).
+2. ~~Update current prices inline~~ (done differently: prices are simulated daily).
 3. **Visual refresh** of the portfolio pages to fit the cosmic look of the shell (dark or light is Yasir's call). Keep plain CSS.
 4. **Better empty states and validation messages** (e.g. a new user's "My portfolio" with no holdings).
-5. Later phases from the original plan: **live market prices** (phase 2); **charts, CSV export** (phase 3).
+5. Later phases: **live market prices** (replace `market/prices.ts`), **admin panel** for the catalog, **CSV export**. (Charts: done.)
 6. A **case-study section** for the Portfolio app in the README (problem, approach, screenshots).

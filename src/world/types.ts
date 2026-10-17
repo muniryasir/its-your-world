@@ -24,4 +24,11 @@ export type AppManifest = {
    * The shell blocks these pages for users who haven't added the app.
    */
   basePath: string;
+  /**
+   * Optional. "space" renders the app's pages inside the dark space shell
+   * (header, background, footer) used by the home page and the hub. The
+   * header then floats over the page, so the app adds its own top padding.
+   * Leave it out for the light shell.
+   */
+  theme?: "space";
 };

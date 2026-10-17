@@ -61,6 +61,21 @@ await shot(page, "world-demo-desktop");
 await page.getByRole("link", { name: "Open Portfolio" }).click();
 await page.getByText("Long-Term Growth").waitFor({ timeout: 30000 });
 await shot(page, "portfolio-home-desktop");
+await page.getByText("Long-Term Growth").click();
+await page.getByRole("heading", { name: "Recent activity" }).waitFor({ timeout: 30000 });
+await shot(page, "portfolio-detail-desktop");
+await page.goto(BASE + "/portfolio/markets?class=oil", { waitUntil: "networkidle" });
+await page.getByRole("link", { name: "Brent Crude" }).waitFor({ timeout: 30000 });
+await shot(page, "markets-oil-desktop");
+await page.goto(BASE + "/portfolio/markets/XAU", { waitUntil: "networkidle" });
+await page.getByRole("heading", { name: "Key stats" }).waitFor({ timeout: 30000 });
+await shot(page, "asset-gold-desktop");
+// Hover the chart to capture the tooltip
+const plot = page.locator(".price-chart svg");
+const box = await plot.boundingBox();
+if (box) await page.mouse.move(box.x + box.width * 0.62, box.y + box.height * 0.5);
+await page.locator('input[name="trade-value"]').fill("5000");
+await shot(page, "asset-gold-hover-desktop", false);
 
 // New user: empty world, catalog, app gate
 page = await newPage();
@@ -83,5 +98,15 @@ page = await newPage(390, 844);
 await signIn(page, "demo", "demo1234");
 await page.getByRole("link", { name: "Open Portfolio" }).waitFor({ timeout: 30000 });
 await shot(page, "world-demo-mobile");
+await page.goto(BASE + "/portfolio/markets?class=crypto", { waitUntil: "networkidle" });
+await page.getByRole("link", { name: "Bitcoin" }).waitFor({ timeout: 30000 });
+await shot(page, "markets-crypto-mobile");
+await page.goto(BASE + "/portfolio/markets/BTC", { waitUntil: "networkidle" });
+await page.getByRole("heading", { name: "Key stats" }).waitFor({ timeout: 30000 });
+await shot(page, "asset-bitcoin-mobile");
+await page.goto(BASE + "/portfolio", { waitUntil: "networkidle" });
+await page.getByText("Crypto Sandbox").click();
+await page.getByRole("heading", { name: "Recent activity" }).waitFor({ timeout: 30000 });
+await shot(page, "portfolio-detail-mobile");
 
 await browser.close();

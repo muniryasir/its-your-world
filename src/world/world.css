@@ -165,6 +165,10 @@ button.home-btn { cursor: pointer; }
 .app-gate h1 { font-size: 1.9rem; }
 .app-gate p { color: var(--ink-2); margin: 0 0 8px; }
 .app-gate-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+/* The gate inside a space-themed app: clear the floating header, light text */
+.shell--space .app-gate { margin-top: clamp(110px, 14vh, 140px); margin-bottom: 72px; padding-inline: 16px; }
+.shell--space .app-gate h1 { font-family: var(--font-cosmic); letter-spacing: -0.03em; }
+.shell--space .app-gate p { color: var(--mist); }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
