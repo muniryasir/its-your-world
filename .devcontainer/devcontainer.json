@@ -2,20 +2,37 @@
   "name": "It's Your World",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
-    "ghcr.io/devcontainers/features/node:1": { "version": "24" }
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
-  "forwardPorts": [3000],
+  "forwardPorts": [
+    3000
+  ],
   "portsAttributes": {
-    "3000": { "label": "It's Your World", "onAutoForward": "openBrowser" },
-    "3001": { "label": "API server (internal)", "onAutoForward": "silent" },
-    "5432": { "label": "Postgres", "onAutoForward": "silent" }
+    "3000": {
+      "label": "It's Your World",
+      "onAutoForward": "openBrowser"
+    },
+    "3001": {
+      "label": "API server (internal)",
+      "onAutoForward": "silent"
+    },
+    "5432": {
+      "label": "Postgres",
+      "onAutoForward": "silent"
+    }
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
-  "postStartCommand": "bash .devcontainer/start-db.sh",
-  "postAttachCommand": "wasp start",
+  "postStartCommand": "bash .devcontainer/start-db.sh && (setsid nohup bash scripts/diagnose.sh --wait >/tmp/diagnose.out 2>&1 &)",
+  "postAttachCommand": "bash .devcontainer/start-app.sh",
   "customizations": {
     "vscode": {
-      "extensions": ["wasp-lang.wasp", "Prisma.prisma"]
+      "extensions": [
+        "wasp-lang.wasp",
+        "Prisma.prisma"
+      ]
     }
   }
 }

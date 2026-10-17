@@ -9,3 +9,6 @@ node_modules/
 # Don't ignore example dotenv files.
 !.env.example
 !.env.*.example
+
+# Local diagnostics output (pushed to the 'diagnostics' branch instead)
+logs/

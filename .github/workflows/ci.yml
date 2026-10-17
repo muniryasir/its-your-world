@@ -112,6 +112,8 @@ jobs:
         run: bash scripts/ci-run.sh devcontainer-setup devcontainer exec --workspace-folder . bash .devcontainer/setup.sh
       - name: Start app and smoke test
         run: |
-          devcontainer exec --workspace-folder . bash -c '(wasp start > /tmp/wasp.log 2>&1 &); for i in $(seq 1 150); do c=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ || true); [ "$c" = "200" ] && break; sleep 2; done; sleep 10; echo "client: $c"'
+          devcontainer exec --workspace-folder . bash -c '(bash .devcontainer/start-app.sh > /dev/null 2>&1 &); for i in $(seq 1 150); do c=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ || true); [ "$c" = "200" ] && break; sleep 2; done; sleep 10; echo "client: $c"'
           bash scripts/ci-run.sh devcontainer-smoke devcontainer exec --workspace-folder . bash scripts/smoke-test.sh http://localhost:3001 \
-            || { bash scripts/ci-run.sh devcontainer-log devcontainer exec --workspace-folder . bash -c 'tail -60 /tmp/wasp.log; exit 1'; exit 1; }
+            || { bash scripts/ci-run.sh devcontainer-log devcontainer exec --workspace-folder . bash -c 'tail -60 /tmp/wasp-start.log; exit 1'; exit 1; }
+      - name: Diagnostics script runs
+        run: bash scripts/ci-run.sh diagnostics devcontainer exec --workspace-folder . env NO_PUSH=1 bash -c 'bash scripts/diagnose.sh && grep -q "client 127.0.0.1:3000  -> 200" logs/diagnostics.log && cat logs/diagnostics.log'
