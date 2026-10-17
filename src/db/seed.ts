@@ -1,5 +1,5 @@
 import type { PrismaClient } from "wasp/server";
-import { createUser, sanitizeAndSerializeProviderData } from "wasp/server/auth";
+import { createProviderId, createUser, sanitizeAndSerializeProviderData } from "wasp/server/auth";
 
 // Demo account used by reviewers: demo / demo1234
 const DEMO_USERNAME = "demo";
@@ -58,11 +58,7 @@ export async function seedDemoData(prisma: PrismaClient) {
     const providerData = await sanitizeAndSerializeProviderData<"username">({
       hashedPassword: DEMO_PASSWORD,
     });
-    const user = await createUser(
-      { id: "username", providerUserId: DEMO_USERNAME },
-      providerData,
-      {},
-    );
+    const user = await createUser(createProviderId("username", DEMO_USERNAME), providerData, {});
     userId = user.id;
     console.log(`Created "${DEMO_USERNAME}" user.`);
   }
