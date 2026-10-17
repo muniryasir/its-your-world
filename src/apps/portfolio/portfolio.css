@@ -258,7 +258,7 @@
 .chart-tip span { color: #4b4878; font-size: 0.72rem; }
 .chart-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0; padding: 10px 22px 18px; font-size: 0.82rem; color: var(--muted); }
 
-.stat-list { margin: 0; padding: 8px 22px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); column-gap: 32px; }
+.stat-list { margin: 0; padding: 8px 22px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); column-gap: 32px; }
 .stat-list div { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .stat-list dt { color: var(--muted); font-size: 0.88rem; }
 .stat-list dd { margin: 0; font-weight: 600; font-size: 0.92rem; text-align: right; }
