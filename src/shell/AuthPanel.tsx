@@ -17,6 +17,7 @@ export function AuthPanel({ mode, onModeChange, onClose }: {
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const usernameInput = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +30,8 @@ export function AuthPanel({ mode, onModeChange, onClose }: {
   useEffect(() => {
     const d = dialog.current;
     if (d && !d.open) d.showModal();
+    // showModal focuses the first button (Close); start in the username field instead.
+    usernameInput.current?.focus();
   }, []);
 
   useEffect(() => setError(null), [mode]);
@@ -85,11 +88,11 @@ export function AuthPanel({ mode, onModeChange, onClose }: {
           <label className="auth-field">
             <span>Username</span>
             <input
+              ref={usernameInput}
               name="username"
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              autoFocus
               required
             />
           </label>
