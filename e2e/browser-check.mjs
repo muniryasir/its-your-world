@@ -32,9 +32,9 @@ async function step(name, fn) {
     await fn();
     console.log(`PASS  ${name}`);
   } catch (e) {
-    const body = await page.evaluate(() => document.documentElement.outerHTML.slice(0, 1500)).catch(() => "(no page)");
+    const body = await page.evaluate(() => location.pathname + "\n" + document.body.innerText.slice(0, 1200)).catch(() => "(no page)");
     // FAIL goes last: CI keeps only the tail of the output in its annotation.
-    console.log(`--- html ---\n${body}\n--- problems ---\n${problems.slice(-15).join("\n")}`);
+    console.log(`--- page text ---\n${body}\n--- problems ---\n${problems.slice(-15).join("\n")}`);
     console.log(`FAIL  ${name}: ${e.message.slice(0, 1500)}`);
     await browser.close();
     process.exit(1);

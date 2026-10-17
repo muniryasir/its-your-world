@@ -186,6 +186,7 @@ a.pcard:hover { text-decoration: none; transform: translateY(-2px); border-color
   font: 700 0.95rem var(--font-display); color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px;
 }
 .invest-tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--brand); }
+.invest-done { padding: 14px 20px 0; }
 .invest-body { display: flex; flex-direction: column; gap: 14px; padding: 18px 20px 20px; margin: 0; }
 .invest-body select, .invest-body input { width: 100%; }
 .preview { margin: 0; padding: 12px 14px; background: var(--bg); border-radius: 10px; display: grid; gap: 6px; }

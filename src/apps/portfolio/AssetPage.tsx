@@ -238,8 +238,10 @@ function InvestPanel({ asset }: { asset: AssetDetail }) {
         ))}
       </div>
 
+      {done && <p className="success invest-done" role="status">{done}</p>}
+
       {side === "sell" && sellable.length === 0 ? (
-        <p className="muted invest-body">You don't own any {asset.name} yet. Buy some first.</p>
+        !done && <p className="muted invest-body">You don't own any {asset.name} yet. Buy some first.</p>
       ) : (
         <form className="invest-body" onSubmit={(e) => submit(e)}>
           <label>
@@ -303,7 +305,6 @@ function InvestPanel({ asset }: { asset: AssetDetail }) {
           </dl>
 
           {error && <p className="error" role="alert">{error}</p>}
-          {done && <p className="success" role="status">{done}</p>}
 
           <div className="form-actions">
             {side === "sell" && position && (
