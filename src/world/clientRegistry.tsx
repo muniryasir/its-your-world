@@ -3,6 +3,7 @@
 import type { ComponentType } from "react";
 import { ArcadePlanet, MysteryPlanet, PortfolioPlanet } from "../shell/art/Planets";
 import { PortfolioTile } from "../apps/portfolio/PortfolioTile";
+import { ArcadeTile } from "../apps/arcade/ArcadeTile";
 
 export type PlanetArt = ComponentType<{ r: number; id: string }>;
 
@@ -14,7 +15,7 @@ export type AppClientParts = {
 
 export const CLIENT_PARTS: Record<string, AppClientParts> = {
   portfolio: { Planet: PortfolioPlanet, Tile: PortfolioTile },
-  arcade: { Planet: ArcadePlanet },
+  arcade: { Planet: ArcadePlanet, Tile: ArcadeTile },
 };
 
 export const FallbackPlanet: PlanetArt = MysteryPlanet;

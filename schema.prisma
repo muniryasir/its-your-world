@@ -17,7 +17,10 @@ model User {
   id         Int         @id @default(autoincrement())
   apps       UserApp[]
   // App relations
-  portfolios Portfolio[]
+  portfolios   Portfolio[]
+  arcadePlayer ArcadePlayer?
+  arcadeGames  ArcadeGame[]
+  gameRuns     GameRun[]
 }
 
 // Which apps a user has added to their world.
@@ -89,4 +92,57 @@ model Trade {
   portfolioId  Int
 
   @@index([portfolioId, createdAt])
+}
+
+// ============================================================================
+// Arcade app models. Owned by the Arcade app, see docs/handoff/arcade-app.md.
+// ============================================================================
+
+// A user's public identity in the Arcade. Leaderboards show the nickname,
+// never the login username.
+model ArcadePlayer {
+  userId      Int      @id
+  nickname    String
+  // Lower-case copy of the nickname, so "Nova-42" and "nova-42" can't both exist.
+  nicknameKey String   @unique
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Games a user has added to their arcade. `gameId` refers to the game catalog
+// (src/apps/arcade/games/catalog.ts). Removing a game keeps its runs.
+model ArcadeGame {
+  id      Int      @id @default(autoincrement())
+  gameId  String
+  addedAt DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  Int
+
+  @@unique([userId, gameId])
+}
+
+// One play of a game. The server picks the seed when the run starts and
+// computes the score itself by replaying the input log when it finishes.
+model GameRun {
+  id         Int       @id @default(autoincrement())
+  gameId     String
+  seed       Int
+  // PLAYING -> FINISHED, or ABANDONED (a newer run started / expired)
+  // or REJECTED (the input log didn't replay into a valid game).
+  status     String    @default("PLAYING")
+  score      Int       @default(0)
+  // Game-specific results from the replay, e.g. { lines, level } for Starfall.
+  stats      Json?
+  // Length of the run in game ticks (60 per second).
+  ticks      Int       @default(0)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
+
+  @@index([gameId, status, score])
+  @@index([userId, gameId, status])
 }
