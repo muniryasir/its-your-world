@@ -13,6 +13,7 @@
   --sun: #ffd23f;
   --font-cosmic: "Unbounded", "Figtree", system-ui, sans-serif;
   --font-text: "Figtree", system-ui, sans-serif;
+  --gutter: max(clamp(16px, 5vw, 56px), calc((100% - 1240px) / 2));
 }
 
 /* The shell (header/footer) goes dark on the home page */
@@ -31,6 +32,7 @@
   position: absolute;
   left: 0;
   right: 0;
+  padding-inline: var(--gutter);
 }
 .shell--home .brand,
 .shell--home .navlink { color: var(--starlight); }
@@ -93,9 +95,8 @@
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   align-items: center;
   gap: 24px;
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: clamp(110px, 14vh, 150px) clamp(16px, 5vw, 56px) clamp(140px, 18vw, 240px);
+  padding: clamp(110px, 14vh, 150px) var(--gutter) clamp(140px, 18vw, 240px);
+  overflow: hidden;
 }
 .home-title {
   font-size: clamp(3rem, 8.4vw, 7.25rem);
@@ -129,7 +130,7 @@
   height: max(1800px, 150vw);
   transform: translate(-50%, calc(100% - clamp(90px, 12vw, 170px)));
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 0%, #2b2477 0%, #191b55 18%, var(--night-deep) 40%);
+  background: linear-gradient(180deg, #2a2373 0px, #171a50 70px, var(--night-deep) 170px);
   box-shadow:
     0 -2px 0 rgba(143, 245, 210, 0.55),
     0 -18px 60px rgba(108, 75, 216, 0.55),
@@ -140,19 +141,17 @@
 /* ---------- Worlds ---------- */
 .home-worlds {
   background: var(--night-deep);
-  padding: clamp(40px, 6vw, 80px) clamp(16px, 5vw, 56px) clamp(60px, 8vw, 110px);
+  padding: clamp(40px, 6vw, 80px) var(--gutter) clamp(24px, 3vw, 40px);
 }
 .home-section-head {
-  max-width: 1240px;
-  margin: 0 auto clamp(32px, 5vw, 56px);
+  margin: 0 0 clamp(32px, 5vw, 56px);
 }
 .home-section-head h2 { font-size: clamp(2rem, 4.4vw, 3.4rem); margin: 0 0 14px; font-weight: 700; }
 .home-section-head p { color: var(--mist); font-size: 1.1rem; max-width: 40rem; margin: 0; line-height: 1.6; }
 
 .world {
   position: relative;
-  max-width: 1240px;
-  margin: 0 auto 28px;
+  margin: 0 0 28px;
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr) minmax(260px, 340px);
   align-items: center;
@@ -269,9 +268,8 @@
 
 /* ---------- Steps ---------- */
 .home-steps {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: clamp(40px, 6vw, 80px) clamp(16px, 5vw, 56px);
+  background: var(--night-deep);
+  padding: clamp(32px, 4vw, 56px) var(--gutter) clamp(40px, 6vw, 72px);
 }
 .home-steps h2 { font-size: clamp(1.8rem, 3.6vw, 2.8rem); margin: 0 0 32px; font-weight: 700; }
 .home-steps ol {
@@ -315,8 +313,10 @@
 /* ---------- Final call ---------- */
 .home-final {
   text-align: center;
-  padding: clamp(48px, 7vw, 96px) clamp(16px, 5vw, 56px) clamp(64px, 9vw, 120px);
-  background: radial-gradient(40rem 20rem at 50% 100%, rgba(108, 75, 216, 0.5), transparent 70%);
+  padding: clamp(48px, 7vw, 96px) var(--gutter) clamp(64px, 9vw, 120px);
+  background:
+    radial-gradient(40rem 20rem at 50% 100%, rgba(108, 75, 216, 0.5), transparent 70%),
+    var(--night-deep);
 }
 .home-final h2 { font-size: clamp(2rem, 5vw, 3.8rem); margin: 0 0 14px; font-weight: 800; letter-spacing: -0.035em; }
 .home-final p { color: var(--mist); font-size: 1.1rem; margin: 0 0 28px; }
@@ -324,7 +324,7 @@
 /* ---------- Responsive ---------- */
 @media (max-width: 960px) {
   .home-hero { grid-template-columns: 1fr; padding-top: 104px; }
-  .home-hero-art { max-width: 560px; justify-self: center; width: 100%; }
+  .home-hero-art { max-width: 560px; justify-self: center; width: 100%; margin-top: -12px; }
   .world { grid-template-columns: 140px minmax(0, 1fr); }
   .world-preview { grid-column: 1 / -1; justify-self: start; width: min(100%, 360px); }
 }

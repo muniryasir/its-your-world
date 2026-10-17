@@ -16,9 +16,9 @@ const PERIOD = 48; // seconds per orbit
 
 // Starting points along the orbit, as a fraction of one lap.
 const PLANETS = [
-  { key: "portfolio", at: 0.08, r: 34, label: "Portfolio" },
-  { key: "arcade", at: 0.42, r: 30, label: "Arcade" },
-  { key: "more", at: 0.74, r: 22, label: "More coming" },
+  { key: "portfolio", at: 0.08, r: 46, label: "Portfolio" },
+  { key: "arcade", at: 0.42, r: 40, label: "Arcade" },
+  { key: "more", at: 0.74, r: 28, label: "More coming" },
 ] as const;
 
 function pointAt(fraction: number) {
@@ -48,7 +48,7 @@ export function HeroOrbit() {
       {/* back half of the orbit */}
       <path d={`M ${CX - RX} ${CY} A ${RX} ${RY} 0 0 1 ${CX + RX} ${CY}`} fill="none" stroke="#c9c4f2" strokeOpacity=".28" strokeWidth="1.5" strokeDasharray="2 7" />
       <g transform={`translate(${CX} ${CY})`}>
-        <HomePlanet r={70} id="hero-home" />
+        <HomePlanet r={72} id="hero-home" />
       </g>
       {/* front half of the orbit */}
       <path d={`M ${CX - RX} ${CY} A ${RX} ${RY} 0 0 0 ${CX + RX} ${CY}`} fill="none" stroke="#c9c4f2" strokeOpacity=".45" strokeWidth="1.5" strokeDasharray="2 7" />
