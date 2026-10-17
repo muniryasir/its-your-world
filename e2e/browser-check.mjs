@@ -20,7 +20,9 @@ await page.route(`${PUBLIC}/**`, async (route) => {
     await route.abort();
   }
 });
-page.on("console", (m) => { if (m.type() === "error") problems.push(`console: ${m.text()}`); });
+// Vite's dev websocket can't connect through the simulated Codespaces host; that's expected noise.
+const noise = /WebSocket|\[vite\]|your current setup|<--\[|Check out your Vite/;
+page.on("console", (m) => { if (m.type() === "error" && !noise.test(m.text())) problems.push(`console: ${m.text()}`); });
 page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
 page.on("requestfailed", (r) => problems.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`));
 page.on("response", (r) => { if (r.status() >= 400) problems.push(`HTTP ${r.status()}: ${r.url()}`); });
@@ -31,7 +33,9 @@ async function step(name, fn) {
     console.log(`PASS  ${name}`);
   } catch (e) {
     const body = await page.evaluate(() => document.documentElement.outerHTML.slice(0, 1500)).catch(() => "(no page)");
-    console.log(`FAIL  ${name}: ${e.message}\n--- problems ---\n${problems.join("\n")}\n--- html ---\n${body}`);
+    // FAIL goes last: CI keeps only the tail of the output in its annotation.
+    console.log(`--- html ---\n${body}\n--- problems ---\n${problems.slice(-15).join("\n")}`);
+    console.log(`FAIL  ${name}: ${e.message.slice(0, 1500)}`);
     await browser.close();
     process.exit(1);
   }
