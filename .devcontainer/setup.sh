@@ -19,7 +19,7 @@ for i in $(seq 1 30); do
 done
 
 echo "==> Applying database migrations"
-wasp db migrate-dev --name init
+wasp db migrate-dev
 
 echo "==> Seeding demo data (demo / demo1234)"
 wasp db seed

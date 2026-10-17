@@ -75,7 +75,6 @@ Requirements: Node.js ≥ 24.14 (npm ≥ 11) and PostgreSQL (or Docker).
 ```bash
 npm install -g @wasp.sh/wasp-cli@0.26.0
 cp .env.server.example .env.server
-cp .env.client.example .env.client
 # Postgres: either point DATABASE_URL at your own server,
 # or remove DATABASE_URL and run `wasp start db` in a separate terminal (needs Docker).
 wasp install
