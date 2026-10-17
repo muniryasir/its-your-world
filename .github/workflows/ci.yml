@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-smoke-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # pushes design screenshots to the 'screenshots' branch
     timeout-minutes: 20
 
     services:
@@ -89,6 +91,12 @@ jobs:
           curl -s -m 30 -o /tmp/page.html -w "status %{http_code}, %{time_total}s\n" -H "Accept: text/html,application/xhtml+xml" -H "Host: ci-smoke-3000.app.github.dev" http://localhost:3000/ || echo "curl failed"
           head -c 600 /tmp/page.html; echo
           bash scripts/ci-run.sh browser-check node e2e/browser-check.mjs
+
+      - name: Screenshots for design review
+        if: github.ref == 'refs/heads/main'
+        run: |
+          bash scripts/ci-run.sh screenshots node e2e/screenshots.mjs
+          bash scripts/push-to-branch.sh screenshots screenshots
 
       - name: Server log
         if: always()

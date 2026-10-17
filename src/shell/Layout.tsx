@@ -1,14 +1,16 @@
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { Link } from "wasp/client/router";
 import { logout, useAuth } from "wasp/client/auth";
 import "./app.css";
 
 export function Layout() {
   const { data: user } = useAuth();
+  const { pathname } = useLocation();
   const username = user?.getFirstProviderUserId();
+  const isHome = pathname === "/";
 
   return (
-    <div className="shell">
+    <div className={isHome ? "shell shell--home" : "shell"}>
       <header className="topbar">
         <Link to="/" className="brand">
           <span className="brand-mark" aria-hidden>◐</span>
@@ -37,7 +39,7 @@ export function Layout() {
       </main>
 
       <footer className="footer">
-        It's Your World · demo build · prices are sample data, not live quotes
+        It's Your World is a demo build. Prices are sample data, not live quotes.
       </footer>
     </div>
   );

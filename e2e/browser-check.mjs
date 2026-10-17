@@ -40,7 +40,7 @@ async function step(name, fn) {
 await step("landing page renders", async () => {
   const res = await page.goto(PUBLIC + "/", { waitUntil: "load", timeout: 60000 });
   if (!res || res.status() >= 400) throw new Error(`status ${res?.status()}`);
-  await page.getByText("Track your investments").waitFor({ timeout: 30000 });
+  await page.getByRole("heading", { name: "It's your world." }).waitFor({ timeout: 30000 });
 });
 
 await step("demo user can log in and see dashboard", async () => {
