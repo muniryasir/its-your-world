@@ -34,7 +34,7 @@ const H = 260;
 const PAD = { top: 16, right: 64, bottom: 28, left: 12 };
 
 export function PriceChart({ points, decimals, label }: { points: Point[]; decimals: number; label: string }) {
-  const gradientId = useId();
+  const gradientId = "pc" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
 

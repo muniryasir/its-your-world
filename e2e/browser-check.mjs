@@ -75,7 +75,7 @@ await step("Portfolio opens from the hub and shows holdings", async () => {
   await page.getByRole("link", { name: "Open Portfolio" }).click();
   await page.getByText("Long-Term Growth").waitFor({ timeout: 30000 });
   await page.getByText("Long-Term Growth").click();
-  await page.getByText("NVIDIA Corp.").waitFor({ timeout: 30000 });
+  await page.getByRole("link", { name: "NVIDIA Corp." }).waitFor({ timeout: 30000 });
 });
 
 await step("new user sees an empty world and can add Portfolio", async () => {

@@ -206,9 +206,9 @@ const views = (holdings: Holding[]) =>
 // Market queries (catalog data is shared, but still only for users who added the app)
 // ---------------------------------------------------------------------------
 
-export const getMarket: GetMarket<{ assetClass?: string } | void, QuoteView[]> = async (args, context) => {
+export const getMarket: GetMarket<{ assetClass?: string }, QuoteView[]> = async (args, context) => {
   await requireAppAdded(context, APP_ID);
-  const assetClass = args && args.assetClass;
+  const assetClass = (args ?? {}).assetClass;
   if (assetClass !== undefined && !isAssetClass(assetClass)) {
     throw new HttpError(400, "Unknown asset class");
   }
