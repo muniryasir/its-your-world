@@ -139,7 +139,7 @@ function HoldingsTable({ portfolio }: { portfolio: PortfolioDetail }) {
               </td>
               <td className="r num">
                 {money(h.marketValue)}
-                <div className="muted small">{((h.marketValue / total) * 100).toFixed(1)}% of total</div>
+                <div className="muted small hide-sm">{((h.marketValue / total) * 100).toFixed(1)}% of total</div>
               </td>
               <td className={`r num ${gainClass(h.gain)}`}>
                 {signedMoney(h.gain)}
