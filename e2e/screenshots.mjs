@@ -143,6 +143,8 @@ await page.goto(BASE + "/arcade/starfall", { waitUntil: "networkidle" });
 await page.getByRole("heading", { name: "Leaderboard" }).waitFor({ timeout: 30000 });
 await playSome(page, 8);
 await shot(page, "starfall-playing-mobile", false);
+const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+if (overflow > 0) throw new Error(`Starfall page is ${overflow}px wider than a 390px phone screen`);
 await endRun(page);
 await shot(page, "starfall-result-mobile");
 

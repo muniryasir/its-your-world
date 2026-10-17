@@ -134,6 +134,7 @@
 }
 .ar-stage {
   grid-area: stage;
+  min-width: 0; /* let the stage shrink; the board is sized to fit it */
   padding: 22px 16px 18px;
   border-radius: var(--ar-radius);
   border: 1px solid rgba(255, 95, 162, 0.28);
@@ -193,8 +194,8 @@
 .ar-medal--3 { background: #f0a274; }
 
 /* ---------- Starfall ---------- */
-.sf { display: grid; gap: 16px; justify-items: center; }
-.sf-field { display: flex; justify-content: center; align-items: flex-start; gap: 14px; width: 100%; }
+.sf { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; justify-items: center; }
+.sf-field { display: flex; justify-content: center; align-items: flex-start; gap: 14px; width: 100%; min-width: 0; }
 .sf-side { flex: none; width: 104px; display: grid; gap: 14px; justify-items: stretch; }
 .sf-box {
   display: grid; gap: 8px; justify-items: center; padding: 10px 6px 8px;

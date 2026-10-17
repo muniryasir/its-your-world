@@ -349,7 +349,7 @@ export function StarfallGame({ gameId, canPlay }: { gameId: string; canPlay: boo
         <aside className="sf-side sf-side--left" ref={sideRef}>
           <div className="sf-box">
             <span className="sf-label">Hold</span>
-            <canvas ref={holdRef} aria-hidden="true" />
+            <canvas ref={holdRef} width={1} height={1} aria-hidden="true" />
           </div>
           <dl className="sf-hud">
             <div><dt>Score</dt><dd data-testid="sf-score">{formatScore(hud.score)}</dd></div>
@@ -361,6 +361,8 @@ export function StarfallGame({ gameId, canPlay }: { gameId: string; canPlay: boo
         <div className="sf-board-wrap">
           <canvas
             ref={boardRef}
+            width={1}
+            height={1}
             className="sf-board"
             tabIndex={-1}
             role="img"
@@ -377,7 +379,7 @@ export function StarfallGame({ gameId, canPlay }: { gameId: string; canPlay: boo
         <aside className="sf-side sf-side--right">
           <div className="sf-box">
             <span className="sf-label">Next</span>
-            <canvas ref={nextRef} aria-hidden="true" />
+            <canvas ref={nextRef} width={1} height={1} aria-hidden="true" />
           </div>
           {(playing || phase.name === "paused") && (
             <div className="sf-side-actions">
