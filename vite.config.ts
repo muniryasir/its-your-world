@@ -21,6 +21,9 @@ export default defineConfig({
   plugins: [wasp()],
   server: codespace
     ? {
+        // Listen on IPv6 + IPv4: the Codespaces port forwarder connects to
+        // localhost over IPv6 (::1) and returns 502 if only 0.0.0.0 is bound.
+        host: "::",
         allowedHosts: true,
         proxy: {
           "/server": {

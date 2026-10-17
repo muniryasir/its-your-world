@@ -78,6 +78,7 @@ jobs:
           echo "== Through the Vite proxy (Codespaces path)"
           bash scripts/ci-run.sh smoke-test-proxy bash scripts/smoke-test.sh http://localhost:3000/server || fail
           echo "== Client page is served"
+          curl -sf "http://[::1]:3000/" | grep -qi '<html' || { echo "::error title=ipv6::client not reachable on [::1]:3000"; fail; }
           curl -sf http://localhost:3000/ | grep -qi '<html' || { echo "::error title=client::index page missing root div"; fail; }
 
       - name: Server log
