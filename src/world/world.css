@@ -172,6 +172,7 @@ button.home-btn { cursor: pointer; }
   .world-hero-art { max-width: 520px; width: 100%; justify-self: center; }
 }
 @media (max-width: 560px) {
+  .world-hero { padding-top: 128px; }
   .catalog-item { grid-template-columns: 64px minmax(0, 1fr); }
   .catalog-planet { width: 64px; }
   .catalog-action { grid-column: 1 / -1; }

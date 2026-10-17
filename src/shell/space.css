@@ -94,3 +94,11 @@
 }
 .world-status--live { background: rgba(46, 211, 160, 0.18); color: #8ff5d2; }
 .world-status--soon { background: rgba(255, 210, 63, 0.16); color: var(--sun); }
+
+/* Small screens: keep the logo on one line; the hero clears the taller header */
+@media (max-width: 560px) {
+  .shell--space .brand { white-space: nowrap; font-size: 1rem; }
+  .shell--space .topbar { align-items: flex-start; }
+  .shell--space .topnav { gap: 6px 12px; }
+  .shell--space .btn--ghost { padding: 6px 12px; }
+}
