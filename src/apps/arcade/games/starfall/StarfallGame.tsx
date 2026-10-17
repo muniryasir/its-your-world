@@ -205,7 +205,7 @@ export function StarfallGame({ gameId, canPlay }: { gameId: string; canPlay: boo
       const byHeight = Math.floor((window.innerHeight - 170) / ROWS);
       const cell = Math.max(12, Math.min(34, byWidth, byHeight));
       renderer.resize(cell, Math.max(8, Math.floor((side - 14) / 4.6)));
-      renderer.draw(controllerRef.current?.game ?? new Starfall(1));
+      renderer.draw(controllerRef.current?.game ?? emptyBoard());
       if (!controllerRef.current) clearPreview(holdRef.current!, nextRef.current!);
     };
     fit();
@@ -397,6 +397,13 @@ export function StarfallGame({ gameId, canPlay }: { gameId: string; canPlay: boo
       <TouchControls controller={controllerRef} active={playing} onPause={pause} />
     </div>
   );
+}
+
+/** A board with nothing on it, shown before the first run. */
+function emptyBoard(): Starfall {
+  const game = new Starfall(1);
+  game.piece = null;
+  return game;
 }
 
 function clearPreview(...canvases: HTMLCanvasElement[]) {
