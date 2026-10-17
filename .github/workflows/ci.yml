@@ -101,19 +101,17 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
-      - uses: devcontainers/ci@v0.3
+      - uses: actions/setup-node@v5
         with:
-          push: never
-          runCmd: |
-            set -e
-            bash .devcontainer/start-db.sh
-            (wasp start > /tmp/wasp.log 2>&1 &)
-            for i in $(seq 1 150); do
-              c=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ || true)
-              s=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ || true)
-              [ "$c" = "200" ] && [ "$s" != "000" ] && break
-              sleep 2
-            done
-            echo "client: $c, server: $s"
-            bash scripts/ci-run.sh devcontainer-smoke bash scripts/smoke-test.sh http://localhost:3001 \
-              || { bash scripts/ci-run.sh devcontainer-log bash -c 'tail -60 /tmp/wasp.log; exit 1'; exit 1; }
+          node-version: "24"
+      - name: Install dev container CLI
+        run: npm install -g @devcontainers/cli
+      - name: Build container
+        run: bash scripts/ci-run.sh devcontainer-build devcontainer up --workspace-folder . --skip-post-create
+      - name: Run Codespaces setup script
+        run: bash scripts/ci-run.sh devcontainer-setup devcontainer exec --workspace-folder . bash .devcontainer/setup.sh
+      - name: Start app and smoke test
+        run: |
+          devcontainer exec --workspace-folder . bash -c '(wasp start > /tmp/wasp.log 2>&1 &); for i in $(seq 1 150); do c=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ || true); [ "$c" = "200" ] && break; sleep 2; done; sleep 10; echo "client: $c"'
+          bash scripts/ci-run.sh devcontainer-smoke devcontainer exec --workspace-folder . bash scripts/smoke-test.sh http://localhost:3001 \
+            || { bash scripts/ci-run.sh devcontainer-log devcontainer exec --workspace-folder . bash -c 'tail -60 /tmp/wasp.log; exit 1'; exit 1; }
