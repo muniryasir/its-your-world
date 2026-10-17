@@ -162,10 +162,16 @@ out=$(op finish-run "$NEW" "{\"runId\":$RUN,\"log\":\"score=999999\"}"); expect 
 out=$(op start-run "$NEW" '{"gameId":"starfall"}'); RUN=$(echo "$out" | grep -oE '"runId":[0-9]+' | cut -d: -f2)
 out=$(op finish-run "$NEW" "{\"runId\":$RUN,\"log\":\"G0G0\"}"); expect 400 "$out" "input logs without an end are rejected"
 
-out=$(op start-run "$DEMO" '{"gameId":"starfall"}'); expect 200 "$out" "demo user can start a run"
-DEMO_RUN=$(echo "$out" | grep -oE '"runId":[0-9]+' | cut -d: -f2)
-out=$(op finish-run "$NEW" "{\"runId\":$DEMO_RUN,\"log\":\"G0Z0\"}"); expect 404 "$out" "other users' runs return 404"
-out=$(op finish-run "$DEMO" "{\"runId\":$DEMO_RUN,\"log\":\"Z0\"}"); expect 200 "$out" "the owner can still finish their run"
+# A second player, so the demo account's runs stay clean.
+U2="smoke2$RANDOM$RANDOM"
+curl -sf -X POST "$API/auth/username/signup" -H "Content-Type: application/json" \
+  -d "{\"username\":\"$U2\",\"password\":\"smoke-pass-123\"}" >/dev/null || fail "second signup"
+OTHER=$(login "$U2" smoke-pass-123) || fail "second user login"
+out=$(op add-app "$OTHER" '{"appId":"arcade"}'); expect 200 "$out" "a second user can add the Arcade"
+out=$(op start-run "$OTHER" '{"gameId":"starfall"}'); expect 200 "$out" "the second user can start a run"
+OTHER_RUN=$(echo "$out" | grep -oE '"runId":[0-9]+' | cut -d: -f2)
+out=$(op finish-run "$NEW" "{\"runId\":$OTHER_RUN,\"log\":\"G0Z0\"}"); expect 404 "$out" "other users' runs return 404"
+out=$(op finish-run "$OTHER" "{\"runId\":$OTHER_RUN,\"log\":\"G0Z0\"}"); expect 200 "$out" "the owner can still finish their run"
 
 out=$(op set-nickname "$NEW" "{\"nickname\":\"Pilot_$RANDOM\"}"); expect 200 "$out" "players can change their nickname"
 out=$(op set-nickname "$NEW" '{"nickname":"demopilot"}'); expect 400 "$out" "nicknames are unique (ignoring case)"

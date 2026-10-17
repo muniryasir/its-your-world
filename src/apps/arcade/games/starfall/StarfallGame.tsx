@@ -10,7 +10,7 @@ import {
 import { finishRun, startRun } from "wasp/client/operations";
 import type { RunResult } from "../../operations";
 import { formatDuration, formatScore } from "../../format";
-import { InputRecorder, Starfall, TICKS_PER_SECOND, type Input } from "./engine";
+import { COLS, InputRecorder, ROWS, Starfall, TICKS_PER_SECOND, type Input } from "./engine";
 import { StarfallRenderer } from "./render";
 
 const STEP_MS = 1000 / TICKS_PER_SECOND;
@@ -178,7 +178,8 @@ export function StarfallGame({ gameId, canPlay }: { gameId: string; canPlay: boo
   const boardRef = useRef<HTMLCanvasElement>(null);
   const holdRef = useRef<HTMLCanvasElement>(null);
   const nextRef = useRef<HTMLCanvasElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const fieldRef = useRef<HTMLDivElement>(null);
   const sideRef = useRef<HTMLElement>(null);
   const rendererRef = useRef<StarfallRenderer | null>(null);
   const controllerRef = useRef<Controller | null>(null);
@@ -195,21 +196,27 @@ export function StarfallGame({ gameId, canPlay }: { gameId: string; canPlay: boo
     const renderer = new StarfallRenderer(boardRef.current!, holdRef.current!, nextRef.current!);
     rendererRef.current = renderer;
     const fit = () => {
-      // The side columns have a fixed CSS width; the board takes what's left.
-      const width = wrapRef.current?.clientWidth ?? 240;
-      const side = (sideRef.current?.clientWidth ?? 100) - 14;
-      renderer.resize(Math.max(12, Math.min(34, Math.floor(width / 10))), Math.max(8, Math.floor(side / 4.6)));
+      // The side columns have a fixed CSS width. The board gets the width
+      // that's left between them, and never more height than the window has.
+      const field = fieldRef.current!;
+      const side = sideRef.current?.offsetWidth ?? 104;
+      const gap = parseFloat(getComputedStyle(field).columnGap) || 0;
+      const byWidth = Math.floor((field.clientWidth - 2 * side - 2 * gap) / COLS);
+      const byHeight = Math.floor((window.innerHeight - 170) / ROWS);
+      const cell = Math.max(12, Math.min(34, byWidth, byHeight));
+      renderer.resize(cell, Math.max(8, Math.floor((side - 14) / 4.6)));
       renderer.draw(controllerRef.current?.game ?? new Starfall(1));
       if (!controllerRef.current) clearPreview(holdRef.current!, nextRef.current!);
     };
     fit();
     const ro = new ResizeObserver(fit);
-    ro.observe(wrapRef.current!);
-    ro.observe(sideRef.current!);
+    ro.observe(fieldRef.current!);
+    window.addEventListener("resize", fit);
     aliveRef.current = true;
     return () => {
       aliveRef.current = false;
       ro.disconnect();
+      window.removeEventListener("resize", fit);
       controllerRef.current?.destroy();
     };
   }, []);
@@ -255,6 +262,9 @@ export function StarfallGame({ gameId, canPlay }: { gameId: string; canPlay: boo
       rendererRef.current!.draw(controller.game);
       setHud({ score: 0, level: 1, lines: 0 });
       setBanner(null);
+      // Bring the whole board into view (the page header sits above it).
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      rootRef.current?.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
       for (const count of [3, 2, 1]) {
         setPhase({ name: "countdown", count });
         await new Promise((r) => setTimeout(r, 550));
@@ -334,8 +344,8 @@ export function StarfallGame({ gameId, canPlay }: { gameId: string; canPlay: boo
   const playing = phase.name === "playing";
 
   return (
-    <div className="sf">
-      <div className="sf-field">
+    <div className="sf" ref={rootRef}>
+      <div className="sf-field" ref={fieldRef}>
         <aside className="sf-side sf-side--left" ref={sideRef}>
           <div className="sf-box">
             <span className="sf-label">Hold</span>
@@ -348,7 +358,7 @@ export function StarfallGame({ gameId, canPlay }: { gameId: string; canPlay: boo
           </dl>
         </aside>
 
-        <div className="sf-board-wrap" ref={wrapRef}>
+        <div className="sf-board-wrap">
           <canvas
             ref={boardRef}
             className="sf-board"

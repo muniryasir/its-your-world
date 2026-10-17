@@ -78,8 +78,7 @@
   color: var(--ar-accent);
 }
 .ar-lead { margin: 12px 0 0; font-size: 1.05rem; color: var(--ar-muted); max-width: 46rem; }
-.ar-section { margin: 34px 0 14px; }
-.ar h2.ar-section { font-size: clamp(1.25rem, 2.2vw, 1.6rem); }
+.ar h2.ar-section { margin: 40px 0 16px; font-size: clamp(1.25rem, 2.2vw, 1.6rem); }
 
 .ar-player {
   display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap;
@@ -148,7 +147,7 @@
 .ar-howto-body { padding: 18px 22px 22px; display: grid; gap: 14px; color: var(--ar-ink-2); line-height: 1.55; }
 .ar-howto-body p { margin: 0; }
 .ar-verified-note strong { color: var(--ar-ink); }
-.ar-keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 20px; margin: 0; }
+.ar-keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 20px; margin: 0; }
 .ar-keys div { display: flex; align-items: center; gap: 10px; }
 .ar-keys dt { min-width: 84px; }
 .ar-keys dd { margin: 0; font-size: 0.9rem; }
@@ -210,13 +209,11 @@
 .sf-hud div:first-child dd { color: var(--ar-gold); }
 .sf-side-actions { display: grid; gap: 8px; }
 
-.sf-board-wrap {
-  position: relative; flex: 0 1 340px; min-width: 150px;
-  max-width: max(200px, min(340px, calc((100svh - 230px) / 2)));
-  display: flex; justify-content: center;
-}
+/* The board's size is set by the renderer (see StarfallGame's fit()). */
+.sf-board-wrap { position: relative; flex: none; }
+.ar .sf-board:focus, .ar .sf-board:focus-visible { outline: none; }
 .sf-board {
-  display: block; border-radius: 14px; outline: none;
+  display: block; border-radius: 14px;
   box-shadow: 0 0 0 1px rgba(255, 95, 162, 0.45), 0 0 40px rgba(255, 95, 162, 0.18), 0 20px 60px rgba(4, 4, 20, 0.6);
 }
 
