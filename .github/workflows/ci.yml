@@ -37,22 +37,21 @@ jobs:
         run: bash .devcontainer/env.sh
 
       - name: Install dependencies
-        run: wasp install
+        run: bash scripts/ci-run.sh install wasp install
 
       - name: Compile (type-checks the app)
-        run: wasp compile
+        run: bash scripts/ci-run.sh compile wasp compile
 
       - name: Apply migrations
         run: |
-          if [ -d migrations ]; then wasp db migrate-dev; else wasp db migrate-dev --name init; fi
-          echo "----- migration SQL -----"
-          cat migrations/*/migration.sql
+          if [ -d migrations ]; then bash scripts/ci-run.sh migrate wasp db migrate-dev; else bash scripts/ci-run.sh migrate wasp db migrate-dev --name init; fi
+          echo "::notice title=migration.sql::$(cat migrations/*/migration.sql | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
 
       - name: Seed demo data
-        run: wasp db seed
+        run: bash scripts/ci-run.sh seed wasp db seed
 
       - name: Production build
-        run: wasp build
+        run: bash scripts/ci-run.sh build wasp build
 
       - name: Smoke test (auth + ownership)
         run: |
@@ -62,7 +61,7 @@ jobs:
             [ "$code" != "000" ] && break
             sleep 2
           done
-          bash scripts/smoke-test.sh http://localhost:3001
+          bash scripts/ci-run.sh smoke-test bash scripts/smoke-test.sh http://localhost:3001 || { bash scripts/ci-run.sh server-log bash -c 'tail -80 wasp.log; exit 1'; exit 1; }
 
       - name: Server log
         if: always()
