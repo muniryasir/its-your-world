@@ -1,3 +1,33 @@
+# It's Your World
+
+A personal hub ("world") where users add apps to one account. One Wasp codebase:
+the **world shell** (`src/shell/`, `src/world/`) and **apps** (`src/apps/<id>/`).
+Read `docs/apps.md` before changing code. If you're working on one app, also read
+its handoff in `docs/handoff/` (e.g. `docs/handoff/portfolio-app.md`).
+
+## Ownership
+
+Different chats own different parts. Stay inside your area; for anything outside it,
+write a note in `docs/handoff/requests.md` and ask Yasir.
+- **World shell chat:** `src/shell/**`, `src/world/**`, `main.wasp.ts`, `.devcontainer/**`,
+  `.github/**`, `scripts/diagnose.sh`, World models (`User`, `UserApp`).
+- **Portfolio app chat:** `src/apps/portfolio/**`, Portfolio models + migrations,
+  the portfolio parts of seed/tests/README. See `docs/handoff/portfolio-app.md`.
+
+## Non-negotiable security rules (details in docs/apps.md)
+
+Every app query/action: `"UserApp"` in entities, `await requireAppAdded(context, "<appId>")`
+first, `userId` in every `where`, other users' records → 404. Add a smoke test for each.
+
+## Workflow
+
+- Work on a branch and open a PR to `main`; CI must be green. Don't push to `main` from an app chat.
+- Verify with GitHub Actions (this cloud workspace can't download Prisma engines, so
+  `wasp compile` doesn't run here). Read failures from check-run annotations via the API.
+- Review screenshots on the `screenshots` (main) / `screenshots-<branch>` branches.
+- Troubleshooting: don't ask Yasir to run commands one by one. Use or extend
+  `scripts/diagnose.sh`, whose log is pushed to the `diagnostics` branch.
+
 ## Wasp
 
 This project uses the Wasp framework.

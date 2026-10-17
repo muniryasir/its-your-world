@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches-ignore: ["screenshots", "screenshots-*", "diagnostics"]
   pull_request:
   workflow_dispatch:
 
@@ -95,10 +95,12 @@ jobs:
           bash scripts/ci-run.sh browser-check node e2e/browser-check.mjs
 
       - name: Screenshots for design review
-        if: github.ref == 'refs/heads/main'
+        # main -> 'screenshots' branch; any other branch -> 'screenshots-<branch>'
+        if: github.event_name == 'push'
         run: |
           bash scripts/ci-run.sh screenshots node e2e/screenshots.mjs
-          bash scripts/push-to-branch.sh screenshots screenshots
+          if [ "$GITHUB_REF_NAME" = "main" ]; then target=screenshots; else target="screenshots-${GITHUB_REF_NAME//\//-}"; fi
+          bash scripts/push-to-branch.sh "$target" screenshots
 
       - name: Server log
         if: always()

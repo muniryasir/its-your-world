@@ -25,12 +25,13 @@ When you're done, stop the codespace (**Codespaces → ⋯ → Stop**) so it doe
 | Feature | Status |
 |---|---|
 | Sign up / log in / log out (username + password) | ✅ |
-| Protected dashboard: portfolios as cards with totals | ✅ |
+| Your world hub: add/remove apps, app tiles with summaries | ✅ |
+| Portfolio app: portfolios as cards with totals | ✅ |
 | Create portfolios | ✅ |
 | Holdings table per portfolio, with gain/loss and allocation bar | ✅ |
 | Add investments to a portfolio | ✅ |
 | Seeded demo account | ✅ |
-| Ownership enforced on the server (other users' portfolios → 404) | ✅ (covered by CI smoke test) |
+| App access and ownership enforced on the server (403 / 404) | ✅ (covered by CI smoke test) |
 | Arcade module | ⏸ Phase 2 |
 | Live market prices | ⏸ Phase 2 (prices are manual / sample data) |
 | Charts, export, admin | ⏸ Phase 3 |
@@ -49,24 +50,29 @@ When you're done, stop the codespace (**Codespaces → ⋯ → Stop**) so it doe
 
 ## How it's organized
 
-```
-main.wasp.ts          App spec: routes, auth, queries/actions, seeds
-schema.prisma         User → Portfolio → Investment
-src/
-  shell/              Layout, landing page, login/signup (shared by all modules)
-  portfolio/          Dashboard, portfolio page, server operations
-  db/seed.ts          Demo user + sample portfolios
-scripts/smoke-test.sh End-to-end auth + ownership checks (run by CI)
-.devcontainer/        Codespaces setup
-```
+It's Your World is a **hub of apps** that share one account. After logging in, users land on their world (`/world`) and add the apps they want. Portfolio is live, the Arcade is coming soon.
 
-Each module lives in its own folder under `src/`. The arcade will be added as `src/arcade/` plus its own routes in `main.wasp.ts`, without touching the portfolio code.
+```
+main.wasp.ts              App spec: shell routes, auth, imports each module's spec
+schema.prisma             User → UserApp (added apps) and each app's own models
+src/
+  shell/                  Layout, home page, login/signup, shared "space" styles and art
+  world/                  Hub page, app catalog, add/remove apps, access gate
+  apps/
+    portfolio/            Portfolio app (pages, server operations, hub tile, own spec file)
+    arcade/               Arcade manifest (coming soon)
+  db/seed.ts              Demo user + sample portfolios
+scripts/smoke-test.sh     Server security checks (auth, app access, ownership), run by CI
+e2e/                      Real-browser checks and design screenshots, run by CI
+docs/apps.md              How apps plug into the world, and the rules they follow
+```
 
 ### Design notes
 
-- **Ownership is part of every query.** Portfolios are always fetched with `where: { id, userId }`. If a portfolio belongs to someone else, the server answers exactly as if it didn't exist (404). This way it doesn't reveal which IDs exist.
-- **Money is stored as `Decimal`**, not floating point, so totals don't drift.
-- **No live prices yet.** Each holding has a manually entered "current price", which keeps the demo self-contained.
+- **Apps are modules, not separate deployments.** "Adding an app" creates a `UserApp` row; the code already ships. Each app has a manifest, its own Wasp spec file, a hub tile and optional setup hooks (see `docs/apps.md`).
+- **Access is enforced on the server.** Every app operation checks that the user is logged in (401) and has added the app (403). Every record is fetched with the user's id in the query, and other users' records answer exactly like missing ones (404).
+- **Removing an app keeps its data**, so adding it back restores everything.
+- **Money is stored as `Decimal`**, not floating point. **No live prices yet**: each holding has a manually entered current price.
 
 ## Run locally (WSL2 / Linux / macOS)
 
