@@ -147,6 +147,50 @@ await step("an unknown asset shows a friendly not-found page", async () => {
   await page.getByRole("heading", { name: "Asset not found" }).waitFor({ timeout: 30000 });
 });
 
+// --- Arcade (owned by the Arcade app) -------------------------------------------
+await step("new user adds the Arcade and finds Starfall on their shelf", async () => {
+  await page.goto(PUBLIC + "/world", { waitUntil: "load" });
+  await page.getByRole("button", { name: "Add an app" }).first().click();
+  await page.getByRole("button", { name: "Add Arcade" }).click();
+  await page.getByRole("link", { name: "Open Arcade" }).waitFor({ timeout: 30000 });
+  await page.getByRole("link", { name: "Open Arcade" }).click();
+  await page.getByRole("heading", { name: "Your arcade" }).waitFor({ timeout: 30000 });
+  await page.getByRole("link", { name: "Play Starfall" }).waitFor({ timeout: 30000 });
+});
+
+await step("player changes their arcade nickname", async () => {
+  await page.getByRole("button", { name: "Change" }).click();
+  const nick = "E2E_" + String(Date.now()).slice(-8);
+  await page.locator('input[name="nickname"]').fill(nick);
+  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByTestId("nickname").filter({ hasText: nick }).waitFor({ timeout: 15000 });
+});
+
+await step("Starfall plays, ends and saves a verified score", async () => {
+  await page.getByRole("link", { name: "Play Starfall" }).click();
+  await page.getByRole("heading", { name: "Starfall", exact: true }).waitFor({ timeout: 30000 });
+  await page.getByRole("heading", { name: "Leaderboard" }).waitFor();
+  await page.getByRole("button", { name: "Start" }).click();
+  await page.getByRole("button", { name: "End run" }).waitFor({ timeout: 15000 });
+  for (const key of ["ArrowLeft", "ArrowUp", "Space", "ArrowRight", "ArrowRight", "Space", "KeyC", "Space"]) {
+    await page.keyboard.press(key);
+    await page.waitForTimeout(120);
+  }
+  const hud = Number((await page.getByTestId("sf-score").innerText()).replace(/,/g, ""));
+  if (!(hud > 0)) throw new Error(`hard drops should score points, HUD shows ${hud}`);
+  await page.getByRole("button", { name: "End run" }).first().click();
+  await page.getByText("Score verified by replay").waitFor({ timeout: 15000 });
+  const saved = Number((await page.getByTestId("sf-final").innerText()).replace(/,/g, ""));
+  if (saved !== hud) throw new Error(`server score ${saved} should match the game's ${hud}`);
+  await page.locator(".ar-you").first().waitFor({ timeout: 15000 });
+  await page.getByTestId("best-score").waitFor();
+});
+
+await step("an unknown game shows a friendly not-found page", async () => {
+  await page.goto(PUBLIC + "/arcade/nope", { waitUntil: "load" });
+  await page.getByRole("heading", { name: "Game not found" }).waitFor({ timeout: 30000 });
+});
+
 if (problems.length) console.log("Non-fatal browser messages:\n" + problems.join("\n"));
 console.log("Browser check passed.");
 await browser.close();

@@ -46,6 +46,25 @@ async function shot(page, name, full = true) {
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: full });
   console.log(`saved ${name}`);
 }
+/** Starts a Starfall run and plays a few pieces so the board isn't empty. */
+async function playSome(page, pieces) {
+  await page.getByRole("button", { name: "Start" }).click();
+  await page.getByRole("button", { name: "End run" }).first().waitFor({ timeout: 15000 });
+  const moves = [["ArrowLeft", "ArrowLeft", "ArrowLeft"], ["ArrowRight", "ArrowRight", "ArrowRight"], ["ArrowUp"], [], ["ArrowLeft"], ["ArrowRight", "ArrowUp"], ["ArrowLeft", "ArrowLeft", "ArrowUp"]];
+  for (let i = 0; i < pieces; i++) {
+    for (const key of moves[i % moves.length]) { await page.keyboard.press(key); await page.waitForTimeout(40); }
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(90);
+  }
+  await page.keyboard.press("ArrowDown"); // leave a piece falling for the shot
+  await page.waitForTimeout(400);
+}
+/** Ends the run (unless the board already filled up) and waits for the result. */
+async function endRun(page) {
+  const end = page.getByRole("button", { name: "End run" }).first();
+  if (await end.isVisible()) await end.click();
+  await page.getByText("Score verified by replay").waitFor({ timeout: 15000 });
+}
 async function signIn(page, user, pass) {
   await page.goto(BASE + "/login", { waitUntil: "networkidle" });
   await page.locator('input[name="username"]').fill(user);
@@ -76,6 +95,18 @@ const box = await plot.boundingBox();
 if (box) await page.mouse.move(box.x + box.width * 0.62, box.y + box.height * 0.5);
 await page.locator('input[name="trade-value"]').fill("5000");
 await shot(page, "asset-gold-hover-desktop", false);
+
+// Arcade (owned by the Arcade app): shelf, Starfall mid-game and after a run
+await page.goto(BASE + "/arcade", { waitUntil: "networkidle" });
+await page.getByRole("link", { name: "Play Starfall" }).waitFor({ timeout: 30000 });
+await shot(page, "arcade-home-desktop");
+await page.getByRole("link", { name: "Play Starfall" }).click();
+await page.getByRole("heading", { name: "Leaderboard" }).waitFor({ timeout: 30000 });
+await shot(page, "starfall-ready-desktop");
+await playSome(page, 14);
+await shot(page, "starfall-playing-desktop", false);
+await endRun(page);
+await shot(page, "starfall-result-desktop");
 
 // New user: empty world, catalog, app gate
 page = await newPage();
@@ -108,5 +139,13 @@ await page.goto(BASE + "/portfolio", { waitUntil: "networkidle" });
 await page.getByText("Crypto Sandbox").click();
 await page.getByRole("heading", { name: "Recent activity" }).waitFor({ timeout: 30000 });
 await shot(page, "portfolio-detail-mobile");
+await page.goto(BASE + "/arcade/starfall", { waitUntil: "networkidle" });
+await page.getByRole("heading", { name: "Leaderboard" }).waitFor({ timeout: 30000 });
+await playSome(page, 8);
+await shot(page, "starfall-playing-mobile", false);
+const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+if (overflow > 0) throw new Error(`Starfall page is ${overflow}px wider than a 390px phone screen`);
+await endRun(page);
+await shot(page, "starfall-result-mobile");
 
 await browser.close();

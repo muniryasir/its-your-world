@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { createProviderId, createUser, sanitizeAndSerializeProviderData } from "wasp/server/auth";
 import { findAsset } from "../apps/portfolio/market/catalog";
 import { closeOn, dayIndex } from "../apps/portfolio/market/prices";
+import { seedArcade } from "../apps/arcade/seed";
 
 const D = Prisma.Decimal;
 
@@ -133,4 +134,7 @@ export async function seedDemoData(prisma: PrismaClient) {
     await prisma.portfolio.update({ where: { id: portfolio.id }, data: { cash } });
   }
   console.log(`Seeded ${DEMO_PORTFOLIOS.length} demo portfolios. Log in with ${DEMO_USERNAME} / ${DEMO_PASSWORD}.`);
+
+  // Arcade app demo data (owned by the Arcade app)
+  await seedArcade(prisma, userId);
 }
