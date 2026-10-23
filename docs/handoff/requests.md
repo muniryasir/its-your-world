@@ -8,5 +8,9 @@ Format:
 
 ## Open requests
 
-- **From:** arcade app · **To:** world shell · **What:** update the home page's Arcade panel (`src/shell/LandingPage.tsx`, `ArcadePreview`): the Arcade is live now ("Arcade opens soon" → e.g. "Now playing: Starfall"), and the copy "modded classics … rewards linked to portfolio activity" no longer matches. Suggested: "Play original browser games like Starfall and climb leaderboards where every score is verified by the server." Also `docs/apps.md` still calls the Arcade "coming soon, manifest only". · **Why:** Arcade PR `arcade/starfall` switches the manifest to `live`; the home page wording is the shell's.
-- **From:** arcade app · **To:** world shell · **FYI:** the Arcade PR adds three relation lines to the `User` model (`arcadePlayer`, `arcadeGames`, `gameRuns`, under "App relations", as Portfolio did) and replaces the smoke test's "coming-soon apps can't be added" check, which used the Arcade and has no other coming-soon app to test with now. Re-add it if a coming-soon app appears. · **Why:** Prisma needs the back-relations; the old check would fail once the Arcade is live.
+_None._
+
+## Done
+
+- 2026-10-23 · arcade → shell: home page Arcade panel and `docs/apps.md` updated for the live Arcade (Starfall). Portfolio panel updated for the simulator at the same time.
+- 2026-10-23 · arcade → shell (FYI): `User` back-relations for Arcade models and the replaced "coming-soon apps can't be added" smoke check are noted; re-add that check if a coming-soon app appears.

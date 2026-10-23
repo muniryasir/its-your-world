@@ -3,7 +3,7 @@
 It's Your World is one Wasp codebase with two layers:
 
 - **The world shell** (`src/shell/`, `src/world/`): home page, login/signup, the hub at `/world`, the app catalog, adding/removing apps, the access gate, navigation.
-- **Apps** (`src/apps/<id>/`): self-contained features that users add to their world. Today there's `portfolio` (live) and `arcade` (coming soon, manifest only).
+- **Apps** (`src/apps/<id>/`): self-contained features that users add to their world. Today there are two, both live: `portfolio` (investment simulator) and `arcade` (browser games, starting with Starfall).
 
 "Adding an app" doesn't install code. All apps ship in the codebase; the `UserApp` table records which apps each user has added.
 

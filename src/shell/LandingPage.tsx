@@ -5,6 +5,7 @@ import { AuthPanel, type AuthMode } from "./AuthPanel";
 import { Starfield } from "./art/Starfield";
 import { HeroOrbit } from "./art/HeroOrbit";
 import { ArcadePlanet, MysteryPlanet, PortfolioPlanet } from "./art/Planets";
+import { StarfallCover } from "../apps/arcade/games/StarfallCover";
 import "./landing.css";
 
 /**
@@ -37,7 +38,7 @@ export function LandingPage({ authMode }: { authMode?: AuthMode }) {
           <h1 className="home-title">It's your world.</h1>
           <p className="home-lede">
             One account for the things you care about. Keep track of your investments today,
-            play retro games soon, and pick up new apps as they arrive.
+            play browser games, and pick up new apps as they arrive.
           </p>
           <div className="home-actions">
             {signedIn ? (
@@ -74,18 +75,18 @@ export function LandingPage({ authMode }: { authMode?: AuthMode }) {
           </svg>
           <div className="world-body">
             <span className="world-status world-status--live">Live now</span>
-            <h3>Manage your portfolio</h3>
+            <h3>Invest without the risk</h3>
             <p>
-              Create as many portfolios as you like, add your holdings and see what everything is
-              worth at a glance.
+              Start a portfolio with demo cash and invest it in real assets at simulated prices.
+              Learn how markets move without putting real money on the line.
             </p>
             <ul className="world-points">
-              <li>Separate portfolios for separate goals</li>
-              <li>Value, cost and gain or loss for every holding</li>
-              <li>How your money is split across stocks, ETFs, crypto and bonds</li>
+              <li>40 assets across oil and energy, crypto, US stocks and metals</li>
+              <li>Price charts, key stats and a buy and sell panel for every asset</li>
+              <li>Value, return and allocation for each portfolio</li>
             </ul>
             <Link to={signedIn ? "/portfolio" : "/signup"} className="home-btn home-btn--teal">
-              {signedIn ? "Open your portfolio" : "Start a portfolio"}
+              {signedIn ? "Open your portfolio" : "Start investing"}
             </Link>
           </div>
           <PortfolioPreview />
@@ -96,17 +97,20 @@ export function LandingPage({ authMode }: { authMode?: AuthMode }) {
             <ArcadePlanet r={96} id="w-ar" />
           </svg>
           <div className="world-body">
-            <span className="world-status world-status--soon">Coming soon</span>
-            <h3>Play retro games</h3>
+            <span className="world-status world-status--live">Live now</span>
+            <h3>Play in the arcade</h3>
             <p>
-              Modded classics you can play right in your browser, with leaderboards and rewards
-              linked to how you manage your portfolio.
+              Original games that run right in your browser. Add the ones you like to your arcade
+              and climb the leaderboards.
             </p>
             <ul className="world-points">
-              <li>Classic console games, reworked</li>
-              <li>Leaderboards against other players</li>
-              <li>Rewards for your portfolio activity</li>
+              <li>Starfall, a falling-crystal puzzle game, with more games to come</li>
+              <li>Leaderboards under a nickname you choose</li>
+              <li>Every score is replayed and checked by the server</li>
             </ul>
+            <Link to={signedIn ? "/arcade" : "/signup"} className="home-btn home-btn--pink">
+              {signedIn ? "Open the arcade" : "Start playing"}
+            </Link>
           </div>
           <ArcadePreview />
         </article>
@@ -153,20 +157,21 @@ export function LandingPage({ authMode }: { authMode?: AuthMode }) {
   );
 }
 
-/** A small, real-looking slice of the portfolio UI, using the demo account's numbers. */
+/** A small example of a portfolio card from the Portfolio app (illustrative numbers). */
 function PortfolioPreview() {
   const parts = [
-    { label: "Stocks", pct: 61.6, color: "#2ed3a0" },
-    { label: "ETF", pct: 38.4, color: "#7fb6ff" },
+    { label: "US Stocks", pct: 46, color: "#4c8dff" },
+    { label: "Metals", pct: 17, color: "#e0a526" },
+    { label: "Cash", pct: 37, color: "#8f8bc4" },
   ];
   return (
     <div className="world-preview pf-preview" aria-label="Example portfolio card">
       <div className="pf-preview-head">
         <strong>Long-Term Growth</strong>
-        <span>4 holdings</span>
+        <span>5 assets</span>
       </div>
-      <div className="pf-preview-value">$24,006.20</div>
-      <div className="pf-preview-gain">+$11,071.90 (+85.60%)</div>
+      <div className="pf-preview-value">$102,207.04</div>
+      <div className="pf-preview-gain">+$2,207.04 (+2.21%) since start</div>
       <div className="pf-preview-bar">
         {parts.map((p) => (
           <span key={p.label} style={{ width: `${p.pct}%`, background: p.color }} />
@@ -185,11 +190,11 @@ function PortfolioPreview() {
 
 function ArcadePreview() {
   return (
-    <div className="world-preview arcade-preview" aria-label="Arcade screen placeholder">
+    <div className="world-preview arcade-preview">
       <div className="arcade-screen">
-        <span className="arcade-title">Press start</span>
-        <span className="arcade-sub">Arcade opens soon</span>
-        <span className="arcade-blink" aria-hidden="true">▮</span>
+        <span className="arcade-title">Now playing</span>
+        <StarfallCover id="home-sf" />
+        <span className="arcade-sub">Starfall</span>
       </div>
     </div>
   );

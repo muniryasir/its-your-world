@@ -179,8 +179,8 @@
   font-family: "Press Start 2P", monospace;
 }
 .arcade-title { color: var(--sun); font-size: clamp(0.9rem, 1.6vw, 1.15rem); text-shadow: 3px 3px 0 #b8306f; }
-.arcade-sub { color: #ff9ccb; font-size: 0.6rem; line-height: 1.6; }
-.arcade-blink { color: var(--teal); font-size: 0.8rem; }
+.arcade-sub { color: #ff9ccb; font-size: 0.75rem; line-height: 1.6; }
+.arcade-screen svg { width: 88%; height: auto; justify-self: center; display: block; }
 
 /* ---------- Steps ---------- */
 .home-steps {

@@ -67,6 +67,8 @@
 .home-btn--ghost:hover { border-color: var(--starlight); }
 .home-btn--teal { background: var(--teal); color: #062b22; }
 .home-btn--teal:hover { background: #5ee6bb; }
+.home-btn--pink { background: var(--pink); color: #2b0618; }
+.home-btn--pink:hover { background: #ff86ba; }
 
 
 .shell--space code {
