@@ -60,3 +60,7 @@ Study the Portfolio app (`src/apps/portfolio/`) as the working example of an app
 1. Confirm GitHub access, read the code above, and summarize back to Yasir how an app plugs into the world.
 2. Listen to Yasir's game structure, then propose: pages and routes under `/arcade`, data models (games, sessions, scores…), what the hub tile shows, how scores are protected, and where the game content comes from (with licenses).
 3. Build the smallest playable version first: one game, a play page, saving a score, a leaderboard and the hub tile. Then switch the manifest to `live`.
+
+## Adding more games
+
+Games after Starfall may be built in their own chats. Their starting point is `docs/handoff/arcade-new-game.md` (how a game plugs in, the rules, and which files a game chat owns).
