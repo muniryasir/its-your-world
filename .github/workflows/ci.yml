@@ -6,6 +6,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A newer push to the same branch cancels the older run, so an outdated run
+# can't overwrite newer screenshots.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-smoke-test:
     runs-on: ubuntu-latest
