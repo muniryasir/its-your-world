@@ -407,6 +407,14 @@ function registerFielder(m: Ram, f: number, twice = false): void {
   if (twice) registerObject(m, sx, sy, frame, m.rw(f + 0x104), f + 0x11e);
 }
 
+/** where registerFielder last drew this fielder: screen top-left and frame (negative = mirrored) */
+export function fielderSprite(m: Ram, f: number): { x: number; y: number; frame: number } {
+  const pose = w(m.rw(f + 0x10c) + m.rw(f + 0x10a));
+  const frame = m.rw(f + 0x130);
+  const flip = poseIndex(m, f, pose) !== 4 * pose;
+  return { x: m.rw(f + 0x12c), y: m.rw(f + 0x12e), frame: flip ? w(-frame) : frame };
+}
+
 /** sub_0471D8 + sub_047C76 + sub_047246 + sub_047CB2 */
 export function closeFieldersTick(m: Ram): void {
   const fs = fielderPtrs(m);

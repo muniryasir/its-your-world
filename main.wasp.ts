@@ -12,6 +12,7 @@ import { worldSpec } from "./src/world/world.wasp";
 // Apps. Each app keeps its own spec file; see docs/apps.md.
 import { portfolioSpec } from "./src/apps/portfolio/portfolio.wasp";
 import { arcadeSpec } from "./src/apps/arcade/arcade.wasp";
+import { consoleSpec } from "./src/apps/console/console.wasp";
 
 // Database seed (demo account + sample data)
 import { seedDemoData } from "./src/db/seed" with { type: "ref" };
@@ -48,5 +49,6 @@ export default app({
     worldSpec,
     portfolioSpec,
     arcadeSpec,
+    consoleSpec,
   ],
 });

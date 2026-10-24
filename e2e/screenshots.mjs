@@ -108,6 +108,17 @@ await shot(page, "starfall-playing-desktop", false);
 await endRun(page);
 await shot(page, "starfall-result-desktop");
 
+// Console Cricket (console/cricket branch): batting practice before and during a delivery
+await page.goto(BASE + "/console/cricket", { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "Face the first ball" }).waitFor({ timeout: 30000 });
+await shot(page, "cricket-ready-desktop");
+await page.getByRole("button", { name: "Face the first ball" }).click();
+await page.getByText("Running in").waitFor({ timeout: 30000 });
+await page.waitForTimeout(1200);
+await shot(page, "cricket-runup-desktop", false);
+await page.locator(".cc-result").waitFor({ timeout: 30000 });
+await shot(page, "cricket-result-desktop", false);
+
 // New user: empty world, catalog, app gate
 page = await newPage();
 await page.goto(BASE + "/signup", { waitUntil: "networkidle" });
@@ -147,5 +158,11 @@ const overflow = await page.evaluate(() => document.documentElement.scrollWidth 
 if (overflow > 0) throw new Error(`Starfall page is ${overflow}px wider than a 390px phone screen`);
 await endRun(page);
 await shot(page, "starfall-result-mobile");
+await page.goto(BASE + "/console/cricket", { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "Face the first ball" }).click();
+await page.getByText("Running in").waitFor({ timeout: 30000 });
+await shot(page, "cricket-mobile");
+const ccOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+if (ccOverflow > 0) throw new Error(`Cricket page is ${ccOverflow}px wider than a 390px phone screen`);
 
 await browser.close();

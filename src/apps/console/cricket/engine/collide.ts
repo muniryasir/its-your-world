@@ -62,11 +62,11 @@ export function resetObjects(m: Ram): void {
 
 // ---------------------------------------------------------------- sprite masks
 
-interface Mask { w: number; h: number; stride: number; bits: Uint8Array }
+export interface Mask { w: number; h: number; stride: number; bits: Uint8Array }
 const maskCache = new Map<number, Mask>();
 
 /** collision mask of a sprite frame; a negative frame is the mirrored sprite (sub_04976A) */
-function getMask(frame: number): Mask {
+export function getMask(frame: number): Mask {
   const hit = maskCache.get(frame);
   if (hit) return hit;
   const src = MASKS[Math.abs(frame)];

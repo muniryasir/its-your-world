@@ -37,3 +37,13 @@ export function projectCam(m: Ram, x: number, y: number, z: number): [number, nu
   const sx = w(c.sx + m.rw(0xbf7e) + m.rw(0xbf7a));
   return [w(persp(sx, c.d) + m.rw(0xe8f2)), w(persp(c.sy, c.d) + m.rw(0xe8f4))];
 }
+
+/** the same camera without 16-bit wrap-around, for drawing scenery far from the pitch (not used by the
+ *  game logic); returns null for points behind the camera */
+export function projectFloat(m: Ram, x: number, y: number, z: number): [number, number] | null {
+  const d = ((C36 * z + S36 * y) * 2) / 65536 + 0x1240;
+  if (d < 64) return null;
+  const sy = ((C36 * y - S36 * z) * 2) / 65536;
+  const sx = x + m.rw(0xbf7e) + m.rw(0xbf7a);
+  return [(sx * 7 * 256) / d + m.rw(0xe8f2), (sy * 7 * 256) / d + m.rw(0xe8f4)];
+}

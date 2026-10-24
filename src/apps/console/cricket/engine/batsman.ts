@@ -66,7 +66,7 @@ function takeButtons(m: Ram): number {
 // ---------------------------------------------------------------- helpers
 
 /** sub_044ED2 / sub_044E9E: screen position of the batsman sprite's origin for animation frame `f` */
-function bodyScreen(m: Ram, x: number, y: number, f: number): [number, number] {
+export function bodyScreen(m: Ram, x: number, y: number, f: number): [number, number] {
   const [sx, sy] = project(x, 0, y);
   const t = (m.rw(0xd2c6) !== 0 ? 0x45176 : 0x44f06) + 8 * f;
   return [w(sx + ROM.rw(t) - 0x30), w(sy + ROM.rw(t + 2) - 0x4b)];
