@@ -5,8 +5,10 @@ import { Practice, PAD, DEFAULT_SETTINGS, BOUNDARY, oversText } from "./engine/p
 import type { Settings, BallResult, Score, BowlerKind } from "./engine/practice";
 import { drawScene, fieldMapPath, SCREEN_W, SCREEN_H } from "./render";
 
-/** the original's game logic runs about 42 times a second in the batting view (PAL, with lag frames) */
-const TICK_MS = 1000 / 42;
+/** the original runs one game tick per 50 Hz (PAL) frame, except while the ball is live: the extra
+ *  drawing there drops it to about 41 ticks a second (measured in the emulator) */
+const TICK_MS = 1000 / 50;
+const LIVE_TICK_MS = 1000 / 41;
 const SCALE = 3;
 const AUTO_NEXT_MS = 2600;
 /** the machine's set-up (aim, meters) runs this many ticks per tick time: same logic, less waiting */
@@ -100,19 +102,20 @@ export function Nets({ seed }: { seed?: number }) {
       last = now;
       let changed = false;
       if (!paused) {
-        while (acc >= TICK_MS) {
-          acc -= TICK_MS;
-          if (g.phase === "result") break;
+        for (;;) {
+          const step = g.phase === "live" || g.phase === "flight" ? LIVE_TICK_MS : TICK_MS;
+          if (acc < step || g.phase === "result") break;
+          acc -= step;
           const before = g.phase;
-          const n = SETUP_PHASES.has(g.engine.phase.kind) ? SETUP_SPEED : 1;
-          for (let i = 0; i < n && g.phase === before; i++) {
+          // the machine's set-up runs SETUP_SPEED ticks per frame; the run-up and the ball run in real time
+          for (let i = 0; i === 0 || (i < SETUP_SPEED && SETUP_PHASES.has(g.engine.phase.kind)); i++) {
             g.tick({ held: heldRef.current, pressed: pressedRef.current });
             pressedRef.current = 0;
           }
           if (g.phase !== before) changed = true;
           if (g.phase === "flight" || before === "flight") changed = true;
         }
-        if (acc > TICK_MS) acc = 0;
+        if (acc > LIVE_TICK_MS) acc = 0;
       } else acc = 0;
       const st = g.phase === "bowling" || g.phase === "live" ? stageLabel(g.engine.phase.kind) : "";
       if (st !== stageRef.current) { stageRef.current = st; setStage(st); }
@@ -202,6 +205,20 @@ export function Nets({ seed }: { seed?: number }) {
           </label>
           <span className="cc-muted">{hud.started ? `${ballsLeft} ball${ballsLeft === 1 ? "" : "s"} left in the over` : ""}</span>
         </div>
+
+        <section className="cc-panel cc-about">
+          <h2>What's rebuilt so far</h2>
+          <p className="cc-muted">
+            Everything up to the end of the delivery runs on logic rebuilt from the original game's code: how the
+            bowler picks his line and length, the ball's swing, bounce and spin, your footwork, timing and where the
+            ball goes off the bat, the keeper and slips, bowled, LBW, caught and wides. It is checked tick by tick
+            against recordings of the original.
+          </p>
+          <p className="cc-muted">
+            Fielding and running between the wickets come next. Until then a hit that stops inside the rope scores
+            0–3 by distance, and one that reaches it scores four, or six on the full.
+          </p>
+        </section>
       </div>
 
       <aside className="cc-side">
@@ -260,11 +277,6 @@ export function Nets({ seed }: { seed?: number }) {
             <div><dt><kbd>Space</kbd></dt><dd>Next ball</dd></div>
             <div><dt><kbd>P</kbd></dt><dd>Pause</dd></div>
           </dl>
-          <p className="cc-small">
-            Everything up to the end of the delivery runs on logic rebuilt from the original game.
-            Fielding and running between the wickets come later: for now a hit that stops inside the
-            rope scores 0–3 by distance, and one that reaches it scores four, or six on the full.
-          </p>
         </section>
       </aside>
     </div>

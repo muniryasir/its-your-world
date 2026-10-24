@@ -64,7 +64,7 @@ listed below.
   the page follows the ball with the original's ball physics and scores it: it reaches the rope (6,400
   units from the middle, about the original's straight boundaries) for four, or six on the full;
   otherwise 0–3 runs by how far from the striker's crease it stopped. No outfielders, no run-outs.
-- **The machine's set-up** (choosing its line, the meters) runs four ticks per tick time, so balls come
+- **The machine's set-up** (choosing its line, the meters) runs four ticks per frame, so balls come
   quicker. Same logic, less waiting.
 - **The look** is ours (silhouettes, night ground, our pitch and creases drawn through the original's
   projection). The original's background art is not used.

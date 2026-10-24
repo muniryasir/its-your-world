@@ -116,8 +116,10 @@
 .cc-btn--primary:hover { background: #5ee6bb; }
 .cc-btn--small { padding: 5px 12px; font-size: 0.8rem; }
 .cc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
-.cc-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--cc-muted); cursor: pointer; }
-.cc-check input { accent-color: var(--cc-teal); width: 16px; height: 16px; }
+/* the shell styles bare labels and inputs (column flex, borders): reset them inside the page */
+.cc label { font-weight: inherit; }
+.cc-check { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 500; color: var(--cc-muted); cursor: pointer; }
+.cc-check input { accent-color: var(--cc-teal); width: 16px; height: 16px; margin: 0; padding: 0; flex: none; }
 
 /* touch controls: shown on touch screens only */
 .cc-touch { display: none; justify-content: space-between; align-items: center; gap: 16px; user-select: none; -webkit-user-select: none; }
@@ -138,16 +140,19 @@
 .cc-seg legend { font-size: 0.78rem; color: var(--cc-muted); margin-bottom: 6px; padding: 0; width: 100%; }
 .cc-seg label {
   position: relative; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--cc-line);
-  font-size: 0.86rem; cursor: pointer; color: var(--cc-ink);
+  font-size: 0.86rem; font-weight: 500; cursor: pointer; color: var(--cc-ink); display: inline-block;
 }
 .cc-seg label.on { background: var(--cc-teal); color: var(--cc-deep); border-color: transparent; font-weight: 600; }
 .cc-seg label:has(input:focus-visible) { outline: 3px solid var(--cc-sun); outline-offset: 2px; }
 .cc-seg input { position: absolute; opacity: 0; pointer-events: none; }
-.cc-range { display: grid; gap: 6px; font-size: 0.78rem; color: var(--cc-muted); }
+.cc-range { display: grid; gap: 6px; font-size: 0.78rem; font-weight: 500; color: var(--cc-muted); }
 .cc-range b { color: var(--cc-ink); }
-.cc-range input { accent-color: var(--cc-teal); width: 100%; }
+.cc-range input { accent-color: var(--cc-teal); width: 100%; margin: 0; padding: 0; border: 0; background: none; }
 .cc-keys { margin: 0; display: grid; gap: 8px; }
-.cc-keys div { display: grid; grid-template-columns: 112px 1fr; gap: 10px; align-items: start; }
+.cc-keys div { display: grid; grid-template-columns: 108px 1fr; gap: 10px; align-items: start; }
+.cc-keys kbd { min-width: 1.5em; padding: 2px 4px; }
+.cc-about { gap: 8px; }
+.cc-about p { line-height: 1.55; }
 .cc-keys dt { display: flex; flex-wrap: wrap; gap: 3px; }
 .cc-keys dd { margin: 0; font-size: 0.84rem; color: var(--cc-muted); }
 .cc-stage-chip {
