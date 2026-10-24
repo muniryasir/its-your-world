@@ -8,7 +8,12 @@ Format:
 
 ## Open requests
 
-_None._
+- 2026-10-24 · **From:** Console Cricket (branch `console/cricket`) · **To:** world shell · **What:** a CI step that runs the
+  cricket fidelity check when it exists, e.g. after the build step:
+  `[ -f src/apps/console/cricket/tools/check.ts ] && npx tsx src/apps/console/cricket/tools/check.ts`
+  (it exits non-zero on a mismatch and prints one line per trace; ~10 s; needs `tsx` via npx). The guard keeps it a no-op on
+  `main` until the branch is merged. · **Why:** the engine is checked tick by tick against recordings of the original game;
+  CI should catch a change that breaks that.
 
 ## Done
 
