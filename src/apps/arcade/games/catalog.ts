@@ -42,7 +42,24 @@ export const STARFALL: GameManifest = {
   credits: "Original game written for It's Your World. Code and artwork are part of this repository.",
 };
 
-export const GAMES: readonly GameManifest[] = [STARFALL];
+export const NOVA_RAIDERS: GameManifest = {
+  id: "nova-raiders",
+  name: "Nova Raiders",
+  tagline: "Retro space shooter: ten levels of raider swarms.",
+  description:
+    "Fly your ship anywhere in the lower field and blast the raider swarms. Each of the 10 levels brings a new kind of raider, and the swarms grow bigger, faster and fiercer. Pick Easy, Normal or Hard before you launch.",
+  status: "live",
+  color: "#ffd23f",
+  controls: [
+    ["← → ↑ ↓ / WASD", "Move"],
+    ["Space / J / X", "Fire (hold)"],
+    ["1 / 2 / 3", "Pick difficulty"],
+    ["P / Esc", "Pause"],
+  ],
+  credits: "Original game written for It's Your World, in the style of early home-console shooters. Code and pixel art are part of this repository.",
+};
+
+export const GAMES: readonly GameManifest[] = [STARFALL, NOVA_RAIDERS];
 
 export function findGame(id: string): GameManifest | undefined {
   return GAMES.find((g) => g.id === id);
