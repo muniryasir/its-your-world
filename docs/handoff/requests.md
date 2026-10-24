@@ -8,7 +8,7 @@ Format:
 
 ## Open requests
 
-- **From:** Nova Raiders game · **To:** Arcade app · **What:** (1) a per-game option to hide the leaderboard on the game page, e.g. `leaderboard: false` in `GameManifest`, with Nova Raiders switched to it; (2) a per-game extra stat for "Recent runs" and the leaderboard column instead of the fixed `stats.lines` / "Rows", e.g. `stat: { key: "level", label: "Level" }` in `GameManifest`. · **Why:** Yasir doesn't want a leaderboard for Nova Raiders. Until then its page shows the shared leaderboard and its recent runs read "0 rows". Nova Raiders stores `level`, `wave`, `difficulty`, `kills`, `lives`, `shotsFired`, `shotsHit` and `end` in `stats`.
+- **From:** Nova Raiders game · **To:** Arcade app · **What:** (1) a per-game option to hide the leaderboard on the game page, e.g. `leaderboard: false` in `GameManifest`, with Nova Raiders switched to it; (2) per-game text for the "How to play" panel (`GamePage.tsx` shows Starfall's scoring and "piece order" lines for every game), e.g. `scoring` and `fairPlay` strings in `GameManifest`; (3) a per-game extra stat for "Recent runs" and the leaderboard column instead of the fixed `stats.lines` / "Rows", e.g. `stat: { key: "level", label: "Level" }` in `GameManifest`. · **Why:** Yasir doesn't want a leaderboard for Nova Raiders. Until then its page shows the shared leaderboard and its recent runs read "0 rows". Nova Raiders stores `level`, `wave`, `difficulty`, `kills`, `lives`, `shotsFired`, `shotsHit` and `end` in `stats`.
 
 ## Done
 

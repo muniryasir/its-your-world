@@ -45,6 +45,7 @@
   background: rgba(5, 4, 15, 0.72);
 }
 .nr-overlay--clear { background: rgba(5, 4, 15, 0.25); }
+.nr-overlay--title { background: linear-gradient(180deg, rgba(5, 4, 15, 0) 0 22%, rgba(5, 4, 15, 0.7) 34% 72%, rgba(5, 4, 15, 0) 84%); }
 .nr-overlay--soft { background: rgba(5, 4, 15, 0.5); }
 .nr-overlay p { margin: 0; }
 

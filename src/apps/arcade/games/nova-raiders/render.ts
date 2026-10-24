@@ -3,7 +3,7 @@
 // `image-rendering: pixelated`, so every game pixel stays a crisp square.
 // Effects here (stars, explosion bits, flashes) are cosmetic and client-only;
 // nothing in this file affects the game itself.
-import { HEIGHT, SUB, WIDTH, type GameEvent, type NovaRaiders } from "./engine";
+import { HEIGHT, SUB, WIDTH, type EnemyType, type GameEvent, type NovaRaiders } from "./engine";
 import {
   AIMED_SHOT_COLOR,
   BACKGROUND,
@@ -27,7 +27,7 @@ export const CANVAS_HEIGHT = HEIGHT + HUD_HEIGHT;
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number };
 type Star = { x: number; y: number; speed: number; tone: number };
 
-const STAR_TONES = ["#2a2756", "#4b4791", "#8e89d6", "#f3f0ff"];
+const STAR_TONES = ["#4a4596", "#6f69c8", "#b3aef0", "#f3f0ff"];
 
 export class NovaRenderer {
   private ctx: CanvasRenderingContext2D;
@@ -142,11 +142,15 @@ export class NovaRenderer {
       ctx.fillStyle = twinkle ? "#ffffff" : STAR_TONES[st.tone];
       ctx.fillRect(st.x, y + HUD_HEIGHT, 1, 1);
     }
-    // Ground strip
-    ctx.fillStyle = "#3a1e6e";
-    ctx.fillRect(0, CANVAS_HEIGHT - 2, CANVAS_WIDTH, 2);
+    // Ground stripes, like the coloured bands of old console shooters
+    const bands = ["#1c1040", "#2a1658", "#3a1e6e"];
+    bands.forEach((c, i) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(0, CANVAS_HEIGHT - 6 + i * 2, CANVAS_WIDTH, i === 2 ? 2 : 1);
+    });
 
     if (game) this.drawGame(game, f);
+    else this.drawAttract(f);
 
     // Explosion bits
     for (const p of this.particles) {
@@ -173,6 +177,19 @@ export class NovaRenderer {
       const shown = Math.min(game.lives, 6);
       for (let i = 0; i < shown; i++) ctx.drawImage(lifeImg, CANVAS_WIDTH - 8 - i * 7, 4);
     }
+  }
+
+  /** The title screen: all ten raiders on parade above a resting ship. */
+  private drawAttract(f: number) {
+    const anim = Math.floor(f / 16) % 2;
+    const bob = Math.round(Math.sin(f / 30) * 2);
+    for (let t = 1; t <= 10; t++) {
+      const col = (t - 1) % 5;
+      const row = Math.floor((t - 1) / 5);
+      const type = t as EnemyType;
+      this.blit(`e${type}${anim}`, ENEMY_SPRITES[type][anim], ENEMY_COLORS[type], (24 + col * 28) * SUB, (22 + row * 16 + bob) * SUB);
+    }
+    this.blit("player", PLAYER, PLAYER_COLOR, (WIDTH / 2) * SUB, (HEIGHT - 18) * SUB);
   }
 
   private drawGame(g: NovaRaiders, f: number) {

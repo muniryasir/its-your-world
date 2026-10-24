@@ -440,7 +440,9 @@ export function NovaRaidersGame({ gameId, canPlay }: { gameId: string; canPlay: 
       </div>
 
       <div className="nr-bar">
-        <span className="nr-chip">{DIFFICULTY_NAMES[controllerRef.current?.game.difficulty ?? difficulty]}</span>
+        {controllerRef.current && phase.name !== "idle" && (
+          <span className="nr-chip">{DIFFICULTY_NAMES[controllerRef.current.game.difficulty]}</span>
+        )}
         {inRun && (
           <span className="nr-bar-actions">
             {playing ? (
@@ -482,7 +484,7 @@ function Overlay({
       return null;
     case "idle":
       return (
-        <div className="nr-overlay">
+        <div className="nr-overlay nr-overlay--title">
           <p className="nr-title">Nova<br />Raiders</p>
           {canPlay ? (
             <>
