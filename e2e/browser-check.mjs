@@ -186,6 +186,33 @@ await step("Starfall plays, ends and saves a verified score", async () => {
   await page.getByTestId("best-score").waitFor();
 });
 
+// --- Arcade: Nova Raiders (owned by the Nova Raiders game chat) -----------------
+await step("Nova Raiders can be added, played on Hard and saves a verified score", async () => {
+  await page.goto(PUBLIC + "/arcade", { waitUntil: "load" });
+  await page.getByRole("button", { name: "Add Nova Raiders" }).click();
+  await page.getByRole("link", { name: "Play Nova Raiders" }).waitFor({ timeout: 30000 });
+  await page.getByRole("link", { name: "Play Nova Raiders" }).click();
+  await page.getByRole("heading", { name: "Nova Raiders", exact: true }).waitFor({ timeout: 30000 });
+  await page.getByRole("radio", { name: /Hard/ }).click();
+  await page.getByRole("button", { name: "Start" }).click();
+  await page.getByRole("button", { name: "End run" }).waitFor({ timeout: 15000 });
+  // Hold fire and weave for a few seconds while the first wave flies in.
+  await page.keyboard.down("Space");
+  for (const key of ["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowRight", "ArrowLeft", "ArrowDown"]) {
+    await page.keyboard.down(key);
+    await page.waitForTimeout(700);
+    await page.keyboard.up(key);
+  }
+  await page.keyboard.up("Space");
+  await page.getByRole("button", { name: "End run" }).first().click();
+  await page.getByText("Score verified by replay").waitFor({ timeout: 15000 });
+  const hud = Number(await page.getByTestId("nr-score").textContent());
+  const saved = Number((await page.getByTestId("nr-final").innerText()).replace(/,/g, ""));
+  if (saved !== hud) throw new Error(`server score ${saved} should match the game's ${hud}`);
+  await page.locator(".nr-result").getByText("Hard").waitFor();
+  await page.getByTestId("best-score").waitFor();
+});
+
 await step("an unknown game shows a friendly not-found page", async () => {
   await page.goto(PUBLIC + "/arcade/nope", { waitUntil: "load" });
   await page.getByRole("heading", { name: "Game not found" }).waitFor({ timeout: 30000 });

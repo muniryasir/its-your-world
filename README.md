@@ -35,6 +35,7 @@ When you're done, stop the codespace (**Codespaces → ⋯ → Stop**) so it doe
 | App access and ownership enforced on the server (403 / 404) | ✅ (covered by CI smoke test) |
 | Arcade app: game shelf, nicknames, hub tile | ✅ |
 | Starfall: falling-block game, keyboard + touch, leaderboard with server-verified scores | ✅ (covered by CI smoke test) |
+| Nova Raiders: retro space shooter, 10 levels, 3 difficulties, keyboard + touch, server-verified scores | ✅ (covered by CI smoke test) |
 | Live market prices | ⏸ Phase 2 (prices are simulated demo data) |
 | CSV export, admin panel | ⏸ Phase 3 |
 
@@ -99,6 +100,19 @@ Each game lives in `src/apps/arcade/games/<id>/` with a deterministic engine and
 ### Content and licensing
 
 Starfall is an **original game** written for this project. Its name, artwork and code are part of this repository; it uses no ROMs, sprites, sounds, names or logos from commercial games. The falling-block genre itself isn't owned by anyone. The *look* of famous games in it is protected, which is why Starfall uses its own crystal artwork and name.
+
+## Arcade: Nova Raiders
+
+**Nova Raiders** is a retro space shooter in the style of early home consoles: a 160 × 192 pixel screen scaled up with crisp square pixels, a small bright palette, blocky two-frame sprites and faint CRT scanlines. You fly anywhere in the lower part of the screen and hold fire to blast raider swarms.
+
+- **10 levels, 3 waves each, no bosses.** Every level introduces a new kind of raider and mixes in the earlier ones: Drone (holds formation), Darter (dives at you), Gunner (aimed shots), Weaver (sweeps across in a wave), Bulwark (takes 3 hits), Splitter (breaks into two shards), Miner (lays mines you can shoot), Seeker (homes in), Spreader (3-way shots) and Phantom (turns invisible and teleports).
+- **Difficulty** (Easy, Normal, Hard) is chosen before launch and scales swarm size, enemy speed and fire rate for the whole run (70% / 100% / 130%). Levels still get harder on every setting.
+- **Ships:** 3 to start, an extra ship every 10,000 points on Normal (7,000 Easy, 13,000 Hard), at most 6. Clearing a level gives 1,000 × level; clearing level 10 adds 5,000 per ship left.
+- **Controls:** arrows or WASD to move, Space / J / X to fire; on phones a steering pad and a fire button.
+
+Scores are verified exactly like Starfall's: the engine (`src/apps/arcade/games/nova-raiders/engine.ts`) is deterministic (integer math in 1/16 pixels, a seeded random generator, a sine table written out as numbers), the input log starts with the chosen difficulty, and the server replays it. `bot.ts` is a small autopilot used to test that runs replay identically and to tune the difficulty curve.
+
+Nova Raiders is an **original game**: its name, pixel art and code are part of this repository. It borrows the genre, not any commercial game's sprites, sounds, names or logos.
 
 ## Run locally (WSL2 / Linux / macOS)
 

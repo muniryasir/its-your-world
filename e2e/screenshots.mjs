@@ -46,6 +46,25 @@ async function shot(page, name, full = true) {
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: full });
   console.log(`saved ${name}`);
 }
+/**
+ * Starts a Nova Raiders run and flies around while the first wave forms up,
+ * opening fire after `fireAfter` ms so the shot shows a fuller formation.
+ */
+async function playNova(page, ms, fireAfter = 0) {
+  await page.getByRole("radio", { name: /Normal/ }).click();
+  await page.getByRole("button", { name: "Start" }).click();
+  await page.getByRole("button", { name: "End run" }).first().waitFor({ timeout: 15000 });
+  const keys = ["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowRight", "ArrowLeft", "ArrowDown"];
+  let firing = false;
+  for (let t = 0, i = 0; t < ms; t += 600, i++) {
+    if (!firing && t >= fireAfter) { await page.keyboard.down("Space"); firing = true; }
+    const key = keys[i % keys.length];
+    await page.keyboard.down(key);
+    await page.waitForTimeout(600);
+    await page.keyboard.up(key);
+  }
+  if (firing) await page.keyboard.up("Space");
+}
 /** Starts a Starfall run and plays a few pieces so the board isn't empty. */
 async function playSome(page, pieces) {
   await page.getByRole("button", { name: "Start" }).click();
@@ -108,6 +127,22 @@ await shot(page, "starfall-playing-desktop", false);
 await endRun(page);
 await shot(page, "starfall-result-desktop");
 
+// Arcade: Nova Raiders (owned by the Nova Raiders game chat): added from the shelf, ready, mid-game, result
+await page.goto(BASE + "/arcade", { waitUntil: "networkidle" });
+await page.getByRole("link", { name: "Play Starfall" }).waitFor({ timeout: 30000 });
+if (await page.getByRole("button", { name: "Add Nova Raiders" }).count()) {
+  await page.getByRole("button", { name: "Add Nova Raiders" }).click();
+}
+await page.getByRole("link", { name: "Play Nova Raiders" }).waitFor({ timeout: 30000 });
+await shot(page, "arcade-home-nova-desktop");
+await page.getByRole("link", { name: "Play Nova Raiders" }).click();
+await page.getByRole("heading", { name: "Nova Raiders", exact: true }).waitFor({ timeout: 30000 });
+await shot(page, "nova-ready-desktop");
+await playNova(page, 9000, 6600);
+await shot(page, "nova-playing-desktop", false);
+await endRun(page);
+await shot(page, "nova-result-desktop");
+
 // New user: empty world, catalog, app gate
 page = await newPage();
 await page.goto(BASE + "/signup", { waitUntil: "networkidle" });
@@ -147,5 +182,14 @@ const overflow = await page.evaluate(() => document.documentElement.scrollWidth 
 if (overflow > 0) throw new Error(`Starfall page is ${overflow}px wider than a 390px phone screen`);
 await endRun(page);
 await shot(page, "starfall-result-mobile");
+await page.goto(BASE + "/arcade/nova-raiders", { waitUntil: "networkidle" });
+await page.getByRole("heading", { name: "Nova Raiders", exact: true }).waitFor({ timeout: 30000 });
+await shot(page, "nova-ready-mobile", false);
+await playNova(page, 8000, 6000);
+await shot(page, "nova-playing-mobile", false);
+const novaOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+if (novaOverflow > 0) throw new Error(`Nova Raiders page is ${novaOverflow}px wider than a 390px phone screen`);
+await endRun(page);
+await shot(page, "nova-result-mobile");
 
 await browser.close();

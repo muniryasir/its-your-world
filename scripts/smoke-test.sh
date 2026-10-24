@@ -183,6 +183,23 @@ out=$(op start-run "$NEW" '{"gameId":"starfall"}'); expect 403 "$out" "runs can'
 out=$(op add-game "$NEW" '{"gameId":"nope"}'); expect 404 "$out" "unknown games can't be added"
 out=$(op add-game "$NEW" '{"gameId":"starfall"}'); expect 200 "$out" "a game can be added back to the shelf"
 
+# --- arcade: Nova Raiders ------------------------------------------------------
+# (owned by the Nova Raiders game chat; see docs/handoff/arcade-new-game.md)
+out=$(op start-run "$NEW" '{"gameId":"nova-raiders"}'); expect 403 "$out" "Nova Raiders runs can't start before it's on the shelf"
+out=$(op add-game "$NEW" '{"gameId":"nova-raiders"}'); expect 200 "$out" "Nova Raiders can be added to the shelf"
+out=$(op get-game "$NEW" '{"gameId":"nova-raiders"}'); expect 200 "$out" "Nova Raiders page data loads"
+out=$(op start-run "$NEW" '{"gameId":"nova-raiders"}'); expect 200 "$out" "a Nova Raiders run can start"
+RUN=$(echo "$out" | grep -oE '"runId":[0-9]+' | cut -d: -f2)
+# Hard mode: hold fire and move left for one second, then quit. The claimed score must be ignored.
+out=$(op finish-run "$NEW" "{\"runId\":$RUN,\"log\":\"3I0A0B1oZ0\",\"score\":999999}"); expect 200 "$out" "a finished Nova Raiders run is accepted"
+[[ "$out" =~ \"score\":0[,}] ]] || fail "the Nova Raiders score should come from the replay (no enemies in the first second): ${out:0:300}"
+[[ "$out" == *'"difficulty":"hard"'* ]] || fail "the replay should record the chosen difficulty: ${out:0:300}"
+pass "Nova Raiders scores and difficulty come from the server's replay"
+out=$(op start-run "$NEW" '{"gameId":"nova-raiders"}'); RUN=$(echo "$out" | grep -oE '"runId":[0-9]+' | cut -d: -f2)
+out=$(op finish-run "$NEW" "{\"runId\":$RUN,\"log\":\"G0G0Z0\"}"); expect 400 "$out" "Nova Raiders logs without a difficulty are rejected"
+out=$(op start-run "$NEW" '{"gameId":"nova-raiders"}'); RUN=$(echo "$out" | grep -oE '"runId":[0-9]+' | cut -d: -f2)
+out=$(op finish-run "$NEW" "{\"runId\":$RUN,\"log\":\"2I0\"}"); expect 400 "$out" "Nova Raiders logs without an end are rejected"
+
 out=$(op remove-app "$NEW" '{"appId":"arcade"}'); expect 200 "$out" "user can remove the Arcade"
 out=$(op get-arcade "$NEW" null); expect 403 "$out" "removed Arcade's data is blocked again"
 out=$(op finish-run "$NEW" '{"runId":1,"log":"Z0"}'); expect 403 "$out" "removed Arcade's actions are blocked again"
