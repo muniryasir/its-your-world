@@ -360,7 +360,7 @@ export function fielderSpeed(m: Ram): number {
 // ---------------------------------------------------------------- animation scripts
 
 /** sub_0389DC: start an animation script */
-export function animStart(m: Ram, a0: number, script: number): number {
+export function animStart(m: Ram, a0: number, script: number): AnimResult["code"] {
   m.ww(a0 + 0x5a, 0); m.ww(a0 + 0x5c, 0); m.ww(a0 + 0x58, 0);
   return animStep(m, a0, script).code;
 }

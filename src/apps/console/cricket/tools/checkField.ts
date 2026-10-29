@@ -54,7 +54,7 @@ export function checkFieldTrace(tr: FieldTrace, verbose = false, mk: (buf: Uint8
   for (let i = 0; i < tr.ticks.length; i++) {
     const [reads, , loop, changed] = tr.ticks[i] as unknown as [[number, number][] | number, number, string, Record<string, number>];
     for (const [k, v] of Object.entries(changed)) want[+k] = v;
-    if (fv.done) return { ok: false, ticks: i, message: `engine ended (${fv.phase.end}) at step ${i}, emulator went on (${loop})` };
+    if (fv.done) return { ok: false, ticks: i, message: `engine ended (${fv.phase.kind === "done" ? fv.phase.end : "?"}) at step ${i}, emulator went on (${loop})` };
     if (typeof reads === "number") padFrame(m, reads);
     else for (const [b, h] of reads) if (b === blk()) padFrame(m, h);
     try {
