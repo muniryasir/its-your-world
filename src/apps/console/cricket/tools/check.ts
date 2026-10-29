@@ -62,7 +62,7 @@ if (isMain) {
   const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "traces");
   const files = process.argv.length > 2 ? process.argv.slice(2) : readdirSync(dir).filter((f) => f.endsWith(".json.gz")).sort().map((f) => join(dir, f));
   let pass = 0, ticks = 0, unexpected = 0;
-  const known = new Set(["start_s0_d4"]); // see "Known differences" in ../README.md
+  const known = new Set<string>(); // see "Known differences" in ../README.md
   for (const f of files) {
     const tr = loadTrace(f);
     const r = checkTrace(tr);

@@ -159,6 +159,7 @@ function releaseVelocity(m: Ram, d0: number, d1: number, d2: number, d3: number)
   d5 = div32(d5, dy);
   let d6 = l(m.rw(0xd286) << 16);
   d6 = asr(d6, 5);
+  m.d6hi = w(d6 >> 16); // sub_044480 doesn't restore d6
   d5 = l(d5 - d6);
   m.wl(0xe5a8, d5); // vx
   d5 = w(m.rw(0xd286) << 5);

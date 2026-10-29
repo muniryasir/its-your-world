@@ -265,6 +265,7 @@ export function hitStumps(m: Ram): void {
   let ax = m.rw(0xe5a8); if (ax < 0) ax = w(-ax);
   const vyw = m.rw(0xe5b0);
   let d4 = l(muls(c, vyw) + muls(s, ax));
+  m.d6hi = w(muls(s, vyw) >> 16); // muls.w (a0),d6: left in d6 (see Ram.d6hi)
   let d3 = l(muls(c, ax) - muls(s, vyw));
   d3 = asr(l(-d3), 1);
   d3 = asr(l(d3 + m.rl(0xe5a8)), 1);

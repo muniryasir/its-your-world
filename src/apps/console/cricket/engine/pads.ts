@@ -32,8 +32,19 @@ function take(m: Ram, slot: number): number {
   return v;
 }
 
-/** sub_0042E4: presses for one controller record (a0) with the player bit $FBEE */
-function readRecord(m: Ram, a0: number): number {
+/** how a pad block is read: sub_0043D2 (buttons pressed, consumed), sub_00473A (held), sub_0045BA
+ *  (everything latched, consumed) */
+type Reader = (m: Ram, slot: number) => number;
+const held: Reader = (m, slot) => m.rw(0xfbf8 + 8 * slot + 6);
+const latch: Reader = (m, slot) => {
+  const a = 0xfbf8 + 8 * slot + 2;
+  const v = m.rw(a);
+  m.ww(a, 0);
+  return v;
+};
+
+/** sub_0042E4 / sub_00464C / sub_0044CC: one controller record (a0) with the player bit $FBEE */
+function readRecord(m: Ram, a0: number, read: Reader = take): number {
   const mode = m.rw(a0 + 4);
   const active = () => (m.rw(0xfbee) & m.rw(0xfc26)) !== 0;
   const hit = (d0: number, takeOver: boolean) => {
@@ -46,30 +57,30 @@ function readRecord(m: Ram, a0: number): number {
   if (mode === 0) {
     if (!active()) return 0;
     const s = m.rw(a0); if (s < 0) return 0;
-    return hit(take(m, s), false);
+    return hit(read(m, s), false);
   }
   if (mode === 1) {
     m.ww(0xfbee, m.rw(0xfbee) * 2);
     if (!active()) return 0;
     const s = m.rw(a0 + 2); if (s < 0) return 0;
-    return hit(take(m, s), false);
+    return hit(read(m, s), false);
   }
   if (active()) {
     const s = m.rw(a0); if (s < 0) return 0;
-    const d0 = take(m, s);
+    const d0 = read(m, s);
     if (d0 !== 0) return hit(d0, true);
   }
   m.ww(0xfbee, m.rw(0xfbee) * 2);
   if (!active()) return 0;
   const s2 = m.rw(a0 + 2);
   if (s2 < 0 || s2 === m.rw(a0)) return 0;
-  return hit(take(m, s2), true);
+  return hit(read(m, s2), true);
 }
 
-/** sub_004268: presses for controller `ctl` (0, 1, or anything else = either) */
-export function padPresses(m: Ram, ctl: number): number {
-  const c0 = () => { m.ww(0xfbee, 1); return readRecord(m, 0xfc18); };
-  const c1 = () => { m.ww(0xfbee, 4); return readRecord(m, 0xfc1e); };
+/** the controller dispatch of sub_004268 / sub_0045D0: 0, 1, or anything else = either */
+function forController(m: Ram, ctl: number, read: Reader): number {
+  const c0 = () => { m.ww(0xfbee, 1); return readRecord(m, 0xfc18, read); };
+  const c1 = () => { m.ww(0xfbee, 4); return readRecord(m, 0xfc1e, read); };
   if (ctl === 0) return c0();
   if (ctl === 1) return c1();
   let d0 = c0();
@@ -78,3 +89,15 @@ export function padPresses(m: Ram, ctl: number): number {
   if (d0 !== 0) { m.ww(0xfc28, m.rw(0xfbee)); m.ww(0xfc26, m.rw(0xfbee)); m.ww(0xfc2a, 0); }
   return d0;
 }
+
+/** sub_0045D0: buttons and directions held on controller `ctl` */
+export function padHeld(m: Ram, ctl: number): number { return forController(m, ctl, held); }
+
+/** sub_004498 (controller 0) / sub_0044B2 (controller 1): everything latched since the last read, consumed */
+export function padLatch(m: Ram, ctl: 0 | 1): number {
+  if (ctl === 0) { m.ww(0xfbee, 1); return readRecord(m, 0xfc18, latch); }
+  m.ww(0xfbee, 4); return readRecord(m, 0xfc1e, latch);
+}
+
+/** sub_004268: presses for controller `ctl` (0, 1, or anything else = either) */
+export function padPresses(m: Ram, ctl: number): number { return forController(m, ctl, take); }

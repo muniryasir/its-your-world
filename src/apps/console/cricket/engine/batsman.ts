@@ -15,6 +15,7 @@ import { predictAtY, predictAfter } from "./ball";
 import { rngNextAt } from "./rngAt";
 import { registerObject, deadBall } from "./collide";
 import { edgeLift } from "./fielders";
+import { aiHeld, aiButtons, aiReset, aiShot, aiRunCheck, aiOptionsReset } from "./aiBatsman";
 
 const BAT = 0x8610;
 const SHOT_DEFS = 0x44d8e; // 16 bytes per shot: handler.l, -1, -1, firstFrame, lastStep, holdOff, 0
@@ -38,14 +39,22 @@ export function batPad(m: Ram): number {
 const padBlock = (m: Ram) => batPad(m);
 const padActive = (m: Ram) => batPad(m) >= 0;
 
-/** sub_04BAB2 (human): buttons held now */
+/** the batting side is played by the computer (and the ball is still in the batting view) */
+const computerBats = (m: Ram) => m.rw(0xb520) < 0 && m.rw(0x86b2) < 0;
+
+/** sub_04BAB2: buttons held now */
 function held(m: Ram): number {
+  if (computerBats(m)) return aiHeld(m);
   if (!padActive(m)) return 0;
   return m.rw(padBlock(m) + 6);
 }
 /** sub_04BCA4 (human): buttons pressed since the last read (the latch is consumed) plus the
  *  directions held now */
-function takePressed(m: Ram): number {
+function takePressed(m: Ram, ctx: Context): number {
+  if (computerBats(m)) return aiShot(m, ctx);
+  return humanPressed(m);
+}
+function humanPressed(m: Ram): number {
   let v = 0;
   if (padActive(m)) {
     const a = padBlock(m) + 2;
@@ -56,6 +65,7 @@ function takePressed(m: Ram): number {
 }
 /** sub_04BB3A (human): buttons (not directions) pressed since the last read, consumed */
 function takeButtons(m: Ram): number {
+  if (computerBats(m)) return aiButtons(m);
   if (!padActive(m)) return 0;
   const a = padBlock(m) + 2;
   const v = m.rw(a) & 0xf0;
@@ -147,6 +157,7 @@ export function batsmanReset(m: Ram, ctx: Context): void {
   idleInit(m);
   m.ww(BAT + 0xe, 1);
   m.ww(0x860e, 0);
+  aiOptionsReset(m); // sub_046D80
   batsmanSkill(m, ctx);
   registerBatsman(m);
 }
@@ -177,7 +188,12 @@ function idleInit(m: Ram): void { // sub_0447CC
 }
 function readyInit(m: Ram): void { // sub_044848
   m.ww(BAT + 6, 1); m.ww(BAT + 0xc, 0);
-  takePressed(m); // sub_04BC96 (human)
+  resetShot(m); // sub_04BC96
+}
+/** sub_04BC96: a human's presses so far are dropped; the computer forgets its last decision */
+function resetShot(m: Ram): void {
+  if (m.rw(0xb520) < 0) aiReset(m);
+  else humanPressed(m);
 }
 
 const STATES: ((m: Ram, ctx: Context) => void)[] = [
@@ -197,8 +213,8 @@ const STATES: ((m: Ram, ctx: Context) => void)[] = [
   (m, ctx) => {
     if (m.rw(BAT + 0xa) !== 3) m.aw(BAT + 0xa, 1);
     m.ww(BAT + 0xe, m.rw(BAT + 0xa) + 2);
-    if (m.rw(0x860a) === 0) { takePressed(m); return; }
-    const d0 = takePressed(m);
+    if (m.rw(0x860a) === 0) { resetShot(m); return; }
+    const d0 = takePressed(m, ctx);
     if (d0 & 0x40) {
       m.ww(0xd2ca, 0);
       if (d0 & 0xf) startShot(m, ctx, d0);
@@ -314,7 +330,8 @@ function beginSwing(m: Ram, ctx: Context, shot: number): void {
   const h = m.rw(0xdfde) !== 0 ? 0xdff0 : 0xdfe0;
   m.wl(h + 0xc, m.rl(h + 0xa)); m.wl(h + 8, m.rl(h + 6)); m.wl(h + 4, m.rl(h + 2));
   m.ww(h + 2, m.rw(h)); m.ww(h, m.rw(0xd31e));
-  void ctx; // sub_04498C only acts for a computer batsman
+  aiRunCheck(m, () => { m.ww(BAT + 6, 0xb); runDecision(m); }); // sub_04498C
+  void ctx;
 }
 
 /** sub_0453E6: plan a shot: where will the ball be, where must the batsman stand, when to swing */
@@ -420,7 +437,7 @@ function timingWindow(m: Ram): void {
 /** sub_0457BA: before the swing: change shot, shuffle into line, or start the swing (returns true) */
 function swingNow(m: Ram, ctx: Context): boolean {
   if (m.rw(0xd322) !== 0) return true;
-  const d0 = takePressed(m);
+  const d0 = takePressed(m, ctx);
   if (d0 & 0x40) m.ww(0xd2ca, 0);
   else if (d0 & 0x10) m.wb(0xd2ca, 0xff);
   const dir = d0 & 0xf;

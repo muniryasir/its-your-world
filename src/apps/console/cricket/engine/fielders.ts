@@ -198,9 +198,10 @@ function steer(m: Ram, handFrame: number): void {
     if (d5 > d6) d4 = w(-2 * d6);
   } else if (d5 > d6) d4 = w(d6);
   if (m.rw(0xe1b2) === 3) return;
-  let n = w(d6 - 4);
-  if (n < 0) n = 4;
-  startSteer(m, asr(div32(l(d4 << 16), n), 3));
+  // subq.w #4,d6 / moveq #4,d6: the divisor's upper half is what the tick left in d6 (see Ram.d6hi)
+  const n = w(d6 - 4);
+  const divisor = n < 0 ? 4 : l((m.d6hi << 16) | (n & 0xffff));
+  startSteer(m, asr(div32(l(d4 << 16), divisor), 3));
 }
 function startSteer(m: Ram, step: number): void {
   m.wl(0xe56c, step);
@@ -288,6 +289,7 @@ const ACTIONS: Record<number, (m: Ram, f: number, e: number, r: Rel) => void> = 
     if (r.ticks > 0xc) return;
     steer(m, ROM.rw(0x4780a));
     if (m.rw(f + 0x118) >= 0) return;
+    m.d6hi = 0; // moveq #6,d6
     diveSteps(m, f, r.dx, m.rl(e), 6);
     diveSide(m, f, r.dx);
     m.ww(f + 0x108, 3); m.ww(f + 0x10c, 0); m.ww(f + 0x10a, 5); m.ww(f + 0x10e, 3);
@@ -295,6 +297,7 @@ const ACTIONS: Record<number, (m: Ram, f: number, e: number, r: Rel) => void> = 
   0x4780e: (m, f, e, r) => { // dive
     steer(m, ROM.rw(0x47842));
     if (r.ticks > 0xe) return;
+    m.d6hi = 0; // moveq #6,d6
     diveSteps(m, f, r.dx, m.rl(e), 6);
     diveSide(m, f, r.dx);
     m.ww(f + 0x108, 6); m.ww(f + 0x10c, 0); m.ww(f + 0x10a, 7); m.ww(f + 0x10e, 0);
@@ -302,6 +305,7 @@ const ACTIONS: Record<number, (m: Ram, f: number, e: number, r: Rel) => void> = 
   0x47846: (m, f, e, r) => { // long dive
     steer(m, ROM.rw(0x4787a));
     if (r.ticks > 0x12) return;
+    m.d6hi = 0; // moveq #$a,d6
     diveSteps(m, f, r.dx, m.rl(e), 0xa);
     diveSide(m, f, r.dx);
     m.ww(f + 0x108, 7); m.ww(f + 0x10c, 0); m.ww(f + 0x10a, 5); m.ww(f + 0x10e, 0);

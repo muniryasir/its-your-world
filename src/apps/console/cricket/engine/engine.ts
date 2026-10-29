@@ -17,7 +17,8 @@ import {
   computerSwingButton, computerMeterButton, paceInit,
 } from "./delivery";
 import { rngNextAt } from "./rngAt";
-import { padPresses } from "./pads";
+import { padPresses, padHeld } from "./pads";
+import { addToTotal } from "./score";
 import { projectCam } from "./project";
 import { angleTo } from "./trig";
 import { w, l, muls, setLo } from "./m68k";
@@ -72,6 +73,11 @@ export class Engine {
   /** one pass of the current loop */
   step(input: Input): void {
     const m = this.m;
+    // VBlank input handler: held buttons and the pressed latch of the human's pad. The previous
+    // pass's checks run after the frame wait, so they already see this tick's pad.
+    const pb = batPad(m) >= 0 ? batPad(m) : 0xfbf8;
+    m.ww(pb + 4, input.held); m.ww(pb + 6, input.held);
+    m.ww(pb + 2, m.rw(pb + 2) | input.pressed);
     // after-the-frame part of the previous pass: checks and transitions
     if (this.checkDue) {
       this.checkDue = false;
@@ -130,7 +136,7 @@ export class Engine {
         return;
       case "runup":
         if (ph.left > 0) {
-          paceMeter(m, () => input.held); // sub_04C154
+          paceMeter(m, (c) => padHeld(m, c)); // sub_04C154
           this.tick(input); // loop at $E4EE
           ph.left--;
           return;
@@ -141,7 +147,7 @@ export class Engine {
       case "live":
         this.tick(input); // loop at $E528
         if (m.rw(0xe958) >= 0) {
-          paceMeter(m, () => input.held); // sub_04C154
+          paceMeter(m, (c) => padHeld(m, c)); // sub_04C154
           m.aw(0xe958, -1);
         }
         this.checkDue = true;
@@ -309,12 +315,6 @@ export class Engine {
   tick(input: Input): void {
     const m = this.m;
     this.tickPhase = this.phase.kind;
-    // VBlank input handler: held buttons and the pressed latch of the batting pad
-    const pad = batPad(m) >= 0 ? batPad(m) : 0xfbf8;
-    m.ww(pad + 4, input.held); // sub_004800 leaves the "previous" word equal to the current state
-    m.ww(pad + 6, input.held);
-    m.ww(pad + 2, m.rw(pad + 2) | input.pressed);
-
     markerTick(m); // sub_0436F2 -> sub_043720 -> sub_0439BA
     ballStep(m, () => bounceAssist(m)); // sub_0486DC
     ballTrack(m); // sub_048910
@@ -355,6 +355,7 @@ function wideCheck(m: Ram): void {
   // sub_048504
   m.ww(0xe578, 2); m.ww(0xe57e, 0); m.ww(0xe57c, 5); m.ww(0xe57a, 2);
   m.ww(0xbe68 + 0x4e, m.rw(0xbe68 + 0x4e) + 1); // sub_00C482(1): extras
+  addToTotal(m, 1); // sub_00C3C4(1)
   m.ww(0xbeda, -1);
   m.aw(0xbed8, 1);
 }

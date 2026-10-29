@@ -3,7 +3,7 @@
 // sub_04336A / sub_0434D2 / sub_043C54 (computer aim), sub_0439BA (marker), sub_04BDFA / sub_04BE9E
 // (swing/spin meter), sub_04BF62 / sub_04C082 (pace/line meter), sub_04C10A, sub_04C2BE.
 
-import { padPresses } from "./pads";
+import { padPresses, padHeld, padLatch } from "./pads";
 import { Ram, ROM, SIN, COS } from "./mem";
 import { w, l, muls, mulu, divs, divu } from "./m68k";
 import { Context } from "./context";
@@ -188,9 +188,27 @@ function aimPath(m: Ram, x0: number, y0: number, x1: number, y1: number): void {
   splineInit(m, MARKER_SPL, 0xff0000 | p, 0x40);
 }
 
-/** sub_04336A (computer bowler): move the aim marker along its path */
+/** sub_04336A, human bowler: the pad's directions accelerate the marker ($D1DE/$D1E2 by $D1CE per
+ *  tick); it stops dead at the edges (x -$60..$60, y -$80..$400) */
+function humanAim(m: Ram): void {
+  const d0 = padHeld(m, m.rw(0xb526)); // sub_043A1C
+  const d1 = m.rl(0xd1ce);
+  if (d0 & 4) m.wl(0xd1de, m.rl(0xd1de) - d1);
+  else if (d0 & 8) m.wl(0xd1de, m.rl(0xd1de) + d1);
+  if (d0 & 1) m.wl(0xd1e2, m.rl(0xd1e2) + d1);
+  else if (d0 & 2) m.wl(0xd1e2, m.rl(0xd1e2) - d1);
+  m.wl(0xd1d6, m.rl(0xd1d6) + m.rl(0xd1de));
+  if (m.rw(0xd1d6) < -0x60) { m.ww(0xd1d6, -0x60); m.wl(0xd1de, 0); }
+  else if (m.rw(0xd1d6) > 0x60) { m.ww(0xd1d6, 0x60); m.wl(0xd1de, 0); }
+  m.wl(0xd1da, m.rl(0xd1da) + m.rl(0xd1e2));
+  if (m.rw(0xd1da) < -0x80) { m.ww(0xd1da, -0x80); m.wl(0xd1e2, 0); }
+  else if (m.rw(0xd1da) > 0x400) { m.ww(0xd1da, 0x400); m.wl(0xd1e2, 0); }
+}
+
+/** sub_04336A: the human moves the aim marker, or the computer moves it along its path */
 export function computerAim(m: Ram, ctx: Context): void {
   if (m.rw(0xd1d4) !== 0) return;
+  if (m.rw(0xb526) >= 0) { humanAim(m); return; }
   let d0 = m.rw(0xd1f6);
   if (d0 === 0) {
     let tx: number, ty: number;
@@ -236,6 +254,15 @@ export function scatter(m: Ram): void {
 
 /** sub_0439BA (in the tick): the marker settles onto the scattered point and shrinks */
 export function markerTick(m: Ram): void {
+  markerSettle(m);
+  // sub_043720: the marker is redrawn only when it changed; a human's aim timeout ($D1D2) runs then
+  if (m.rw(0xd1d6) === m.rw(0xd1e6) && m.rw(0xd1da) === m.rw(0xd1e8) && m.rw(0xd1bc) === m.rw(0xd1ea) && m.rw(0xbf82) === m.rw(0xd1ec)) return;
+  m.ww(0xd1e6, m.rw(0xd1d6)); m.ww(0xd1e8, m.rw(0xd1da)); m.ww(0xd1ea, m.rw(0xd1bc)); m.ww(0xd1ec, m.rw(0xbf82));
+  if (m.rw(0xb526) < 0) return;
+  if (m.rw(0xd1d4) < 0) { if (m.rw(0xd1d2) >= 0) m.aw(0xd1d2, -1); }
+  else if (m.rw(0xd1d4) === 0) { if (m.aw(0xd1d2, -1) < 0) m.ww(0xd1d4, -1); }
+}
+function markerSettle(m: Ram): void {
   if (m.rw(0xd1d4) >= 0) return;
   let d0 = w(m.rw(0xd1bc) - 4);
   if (d0 !== 0) { d0 = d0 >> 4; if (d0 === 0) d0 = 1; m.ww(0xd1bc, m.rw(0xd1bc) - d0); }
@@ -259,6 +286,7 @@ export function meterBlink(m: Ram): void {
 
 /** sub_04BE9E (computer): when to choose the swing/spin direction and when to stop the meter */
 export function computerSwingButton(m: Ram): number {
+  if (m.rw(0xb526) >= 0) return padLatch(m, m.rw(0xb526) === 0 ? 0 : 1); // human: whatever was pressed
   const st = m.rw(0xe944);
   if (st === 0) {
     m.ww(0xe946, (rngNextAt(m) & 0x1f) + 0x30);
@@ -283,6 +311,7 @@ export function computerSwingButton(m: Ram): number {
 
 /** sub_04C082 (computer): when to stop the pace/line meter */
 export function computerMeterButton(m: Ram): number {
+  if (m.rw(0xb526) >= 0) { m.aw(0xd2a0, 1); return padPresses(m, m.rw(0xb526)); } // human: sub_043A38
   const st = m.rw(0xe944);
   if (st === 0) {
     if (m.rw(0xd294) !== 0) m.ww(0xe946, m.rw(0xd2a0));

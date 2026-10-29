@@ -6,7 +6,7 @@ export interface Context {
   /** current bowler's attributes: +$12 (accuracy/pace rating) and +$14 (signed type; sign = bowling arm) */
   bowler: { a12: number; a14: number };
   /** current batsman: slot +$1C (balls faced so far), slot +$18 (left-handed), attributes +$0E, +$10, +$12 */
-  batsman: { s1c: number; a0e: number; a10: number; a12: number; s18: number };
+  batsman: { s1c: number; a0e: number; a10: number; a12: number; s18: number; a1a?: number };
   /** ROM record at $DFDA: +$12 and +$18 */
   dfda12: number;
   dfda18: number;
