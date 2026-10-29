@@ -14,6 +14,10 @@ export class Ram {
    *  sub_048202 divides by d6 after setting only its lower half, so the upper half left by the
    *  release (sub_044480) or a dive (moveq) changes the result. Not part of the 64 KB. */
   d6hi = 0;
+  /** d6 as the fielding view leaves it between its routines (all 32 bits): sub_037BB6 divides by it
+   *  without setting it. The camera move (sub_034BE2) and the running batsmen's sprites (sub_039BC2)
+   *  leave values in it. Not part of the 64 KB. */
+  fd6 = 0;
   private dv: DataView;
   constructor(src?: Uint8Array) {
     this.buf = src ? new Uint8Array(src) : new Uint8Array(0x10000);
@@ -27,7 +31,7 @@ export class Ram {
   wl(a: number, v: number): void { this.dv.setInt32(a & 0xffff, l(v)); }
   /** add to a word in place (addq.w / subq.w) */
   aw(a: number, d: number): number { const v = w(this.rw(a) + d); this.ww(a, v); return v; }
-  clone(): Ram { const r = new Ram(this.buf); r.d6hi = this.d6hi; return r; }
+  clone(): Ram { const r = new Ram(this.buf); r.d6hi = this.d6hi; r.fd6 = this.fd6; return r; }
 }
 
 class RomImage {

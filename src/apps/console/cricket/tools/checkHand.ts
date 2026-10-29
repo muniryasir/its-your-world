@@ -53,7 +53,7 @@ export function checkHandTrace(tr: HandTrace, verbose = false, mk: (b: Uint8Arra
     if (eng.phase.kind === "done" && passes === 0) {
       if (eng.phase.reason !== "offscreen" && eng.phase.reason !== "settled") return { ok: false, message: `the ball-live loop ended with ${eng.phase.reason}` };
       eng.handOver();
-      eng.step(input);
+      eng.step({ held, pressed: 0 }); // this frame's presses were dropped by the hand-over (sub_00425E)
     }
     if (eng.phase.kind === "handover" || passes > 0 || eng.phase.kind === "done") passes++;
   }

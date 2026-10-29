@@ -181,7 +181,7 @@ export class Practice {
       this.handedOver = true;
       this.path = [[m.rw(0xe5b4), m.rw(0xe5bc)]];
       this.engine.handOver();
-      this.engine.step(input);
+      this.engine.step({ held: input.held, pressed: 0 }); // the hand-over drops this frame's presses
       return;
     }
     // then the fielding view takes over (sub_0343E2)

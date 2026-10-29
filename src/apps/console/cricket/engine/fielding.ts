@@ -19,6 +19,7 @@ import { angleTo, hypot } from "./trig";
 import { rngNextAt } from "./rngAt";
 import { ballStep } from "./ball";
 import { bounceAssist } from "./batsman";
+import { padHeld } from "./pads";
 import {
   REC, fielders, ptr, fullPtr, state, step, setStep, isqrt, fieldScreen, camTarget, outside,
   clampToBoundary, ballAfter, peakHeight, restPoint, catchPoint, octant, minusHand, plusHand, dist2,
@@ -119,7 +120,9 @@ function camMove(m: Ram): void { // sub_034BE2
     let d0 = l(m.rl(cam) - off);
     let d3 = l(m.rl(tgt) - d0);
     if (d3 !== 0) {
-      const sh = (m.rw(m.rw(0xe5a2) !== 0 ? 0xc6f4 : 0xc6f6) & 63);
+      const shw = m.rw(m.rw(0xe5a2) !== 0 ? 0xc6f4 : 0xc6f6);
+      m.fd6 = l((m.fd6 & ~0xffff) | (shw & 0xffff)); // move.w ...,d6
+      const sh = shw & 63;
       d3 = sh >= 32 ? (d3 < 0 ? -1 : 0) : (d3 >> sh);
       if (d3 < 0) { if (d3 < l(-d7)) d3 = l(-d7); }
       else if (d3 > d7) d3 = d7;
@@ -497,7 +500,10 @@ function throwArrows(m: Ram): void {
   if (m.rw(0xc6d0) !== 2) return;
   if (m.rb(0xfd0e) !== 0) return;
   m.wb(0xfd0e, -1);
+  arrowPads?.fielding(m); // sub_043A38: presses so far are dropped
 }
+/** the fielding view's pads, for routines the original calls without them being passed down */
+let arrowPads: FieldPads | null = null;
 /** sub_036B06 */
 function clearArrows(m: Ram): void { if (m.rb(0xfd0e) !== 0) m.wb(0xfd0e, 0); }
 
@@ -572,10 +578,127 @@ function chase(m: Ram, a0: number, pads: FieldPads): void {
   toStoop(m, a0);
 }
 
-/** the human-controlled chaser (loc_036828): later */
+/** the human-controlled fielder (loc_036828): the pad steers him; he catches, gathers and jumps by
+ *  himself; near the stumps with the ball he runs it in; A / B (with the arrows up) throw to an end;
+ *  C (before anyone has the ball) switches to the next-best fielder */
 function humanChase(m: Ram, a0: number, pads: FieldPads): void {
-  void m; void a0; void pads;
-  throw new Error("fielding: human-controlled fielder not ported yet");
+  if (!ballNearingPlan(m)) {
+    m.ww(0xc774, 0);
+    intercept(m, a0, 7);
+    m.ww(0xc786, m.rw(a0 + 0x2c)); m.ww(0xc788, m.rw(a0 + 0x30)); m.ww(0xc78c, m.rw(a0 + 0x32));
+    planDistance(m);
+  }
+  const dir = padHeld(m, m.rw(0xb526)) & 0xf; // sub_0045D0
+  if (dir === 0) {
+    standFrame(m, a0);
+    m.ww(0xc79c, 0);
+  } else {
+    const want = ROM.rw(0x36a58 + 2 * dir);
+    let turn = true;
+    if (m.rw(0xc79c) !== 1) {
+      let fresh = true;
+      if (m.rw(0xc79c) !== 0) { let d = w(want - m.rw(a0 + 0x56)); if (d < 0) d = w(-d); if (d <= 0x200) fresh = false; }
+      if (fresh) { standFrame(m, a0); m.ww(0xc79c, 1); }
+    }
+    let d1 = turnToward(m, want, m.rw(a0 + 0x56));
+    d1 = turnToward(m, want, d1);
+    m.ww(a0 + 0x56, d1);
+    if (m.rw(0xc79c) === 1 && want !== d1) turn = false; // still turning to the new direction
+    if (turn) {
+      const x = m.rw(a0 + 0x3c), y = m.rw(a0 + 0x44);
+      runAhead(m, a0); // sub_038B2A (sub_038C6A before it does nothing)
+      if (outside(m.rw(a0 + 0x3c), m.rw(a0 + 0x44))) { standFrame(m, a0); m.ww(a0 + 0x3c, x); m.ww(a0 + 0x44, y); }
+      m.ww(0xc79c, 2);
+    }
+  }
+  if (!tryCatch(m, a0, m.rw(0xc6ea))) {
+    let gathered = false;
+    if (m.rw(0xc6d0) < 2) {
+      if (!(dist2Ball(m, a0) > muls(m.rw(0xc6e8), m.rw(0xc6e8))) && !(peakHeight(m) > 0x3c)) {
+        m.wl(0xe5a8, 0); m.wl(0xe5ac, 0); m.wl(0xe5b0, 0);
+        toGather(m, a0);
+        return;
+      }
+    }
+    gathered = gatherNear(m, a0, m.rw(0xc6e2));
+    if (!gathered) jumpCatch(m, a0, m.rw(0xc6f0));
+  }
+  // with the ball, close to one set of stumps: run it in (states 12 / 13)
+  if (m.rw(0xe5a2) !== 0 && m.rw(0xc6d0) === 2) {
+    const x3 = w(3 * m.rw(a0 + 0x3c));
+    const dx = muls(x3, x3);
+    const y = m.rw(a0 + 0x44);
+    let dy = w(y - 0x400);
+    if (!(l(muls(dy, dy) + dx) > 0x27100)) { runItIn(m, a0, 0xc776, 0xc); return; }
+    dy = w(y + 0x400);
+    if (!(l(muls(dy, dy) + dx) > 0x27100)) { runItIn(m, a0, 0xc77a, 0xd); return; }
+  }
+  if (m.rb(0xfd0e) === 0) {
+    if (m.rw(0xc6d0) !== 0) return;
+    const d0 = pads.fielding(m); // sub_043A38
+    if ((d0 & 0x20) && m.rb(0xfd0c) === 0) {
+      // sub_035922 leaves a0 = the chaser it chose, so the original's cmpa.l $C730,a0 always matches
+      chooseChaser(m);
+      m.ww(0xc734, m.rw(0xc734) ^ 1);
+      pickChaser(m);
+    }
+    return;
+  }
+  const d0 = pads.fielding(m);
+  if (d0 & 0x40) m.ww(0xc7c6, 1);
+  else if (d0 & 0x10) m.ww(0xc7c6, 2);
+  else return;
+  clearArrows(m);
+  toThrow(m, a0);
+}
+/** loc_036982 / loc_0369BE: the human fielder runs the ball to the stumps himself; whoever was
+ *  waiting there walks off (sub_0388CC) */
+function runItIn(m: Ram, a0: number, slot: number, st: number): void {
+  if (m.rw(slot) !== 0) walkOff(m, ptr(m, slot), a0);
+  m.wl(slot, fullPtr(a0));
+  m.ww(a0 + 0x3a, st); m.ww(a0 + 0x38, st);
+  m.ww(0x8602, 0);
+  setPlay(m, 5);
+}
+/** sub_0388CC: a fielder makes way: he turns roughly away from a0 (random +-$200) and walks (state 15) */
+function walkOff(m: Ram, a1: number, a0: number): void {
+  const d2 = angleTo(m.rw(a1 + 0x2c), m.rw(a1 + 0x30), m.rw(a0 + 0x3c), m.rw(a0 + 0x44));
+  let d0 = rngNextAt(m) & 0x400;
+  d0 = w(d0 - 0x200 + d2) & 0x7ff;
+  m.ww(a1 + 0x2c, d0);
+  m.ww(a1 + 0x38, 0);
+  m.ww(a1 + 0x3a, 0xf);
+  m.ww(a1 + 0x5e, 0);
+}
+/** sub_038346: a slow ball on the ground within `reach` of him: he gathers it */
+function gatherNear(m: Ram, a0: number, reach: number): boolean {
+  if (m.rw(0xc6d0) >= 2) return false;
+  const vx = m.rw(0xe5a8), vy = m.rw(0xe5b0);
+  if (l(muls(vx, vx) + muls(vy, vy)) > muls(m.rw(0xc6e6), m.rw(0xc6e6))) return false;
+  if (peakHeight(m) > 0x3c) return false;
+  if (!(dist2Ball(m, a0) <= muls(reach, reach))) return false;
+  toGather(m, a0);
+  return true;
+}
+/** sub_037BB6: a skied ball he can get under in time: he gets ready to catch it (state 11). The
+ *  original reuses d0 (a squared distance) as a coordinate and divides by d6, which it never sets:
+ *  both are kept (Ram.fd6). */
+function jumpCatch(m: Ram, a0: number, reach: number): boolean {
+  if (m.rw(0xc6d0) >= 2) return false;
+  if (peakHeight(m) < 0x74) return false;
+  const d4lim = muls(reach, reach);
+  const [, , y, ticks] = catchPoint(m); // sub_038E1E
+  if (ticks < 0) return false;
+  const d0 = dist2(m, a0, m.rw(0x86da), m.rw(0x86e2)); // sub_038D86
+  if (d0 > d4lim) return false;
+  const dx = w(m.rw(a0 + 0x3c) - w(d0));
+  const dy = w(m.rw(a0 + 0x44) - y);
+  let d4 = l(muls(dx, dx) + muls(dy, dy));
+  d4 = div32(d4, m.fd6);
+  const d3 = w(l(muls(ticks, ticks) - d4));
+  if (d3 < -0x10) return false;
+  toReceive(m, a0);
+  return true;
 }
 
 /** sub_03839E: gather a ball rolling to him (state 10) */
@@ -1511,7 +1634,7 @@ export class FieldView {
   phase: Phase = { kind: "main" };
   /** which loop the last pass belonged to (the original's call site of sub_034A82) */
   label = "main";
-  constructor(public m: Ram, public pads: FieldPads) {}
+  constructor(public m: Ram, public pads: FieldPads) { arrowPads = pads; }
 
   setup(): void {
     const m = this.m;
@@ -1591,6 +1714,7 @@ export class FieldView {
     // sub_035F44 (fielder sprites) also runs the human fielder's marker: sub_0364BC
     markerTick(m);
     ballView(m);
+    runnerSpritesD6(m); // sub_039260
     if (m.rw(0xe934) !== 0) ballDead(m);
     m.ww(0xe936, m.rw(0xe5a2));
   }
@@ -1686,10 +1810,34 @@ export class FieldView {
     this.finish("boundary");
   }
 
-  /** sub_036B2A: a human fielder standing at the stumps with the ball too long (later) */
-  private humanHeld(): boolean { if (this.m.rw(0x8602) !== 0) throw new Error("fielding: human fielding not ported yet"); m0(this.m, 0xc11a); return false; }
-  /** sub_036B94 */
-  private humanAutoOff(): void { if (this.m.rw(0x8602) !== 0) throw new Error("fielding: human fielding not ported yet"); }
+  /** sub_036B2A: the human fielder has stood still with the ball between the wickets for $95 steps */
+  private humanHeld(): boolean {
+    const m = this.m;
+    if (m.rw(0x8602) === 0) return false;
+    const clear = () => { m0(m, 0xc11a); return false; };
+    if (m.rw(0xc6d0) !== 2) return clear();
+    const a0 = ptr(m, 0xc730), y = m.rw(a0 + 0x44), x = m.rw(a0 + 0x3c);
+    if (!(w(m.rw(0xc6fc) + 0x100) > y)) return clear();
+    if (w(m.rw(0xc6fe) - 0x100) >= y) return clear();
+    if (x < -0x1c0 || x > 0x1c0) return clear();
+    if (padHeld(m, m.rw(0xb526)) !== 0) return clear();
+    return m.aw(0xc11a, 1) >= 0x95;
+  }
+  /** sub_036B94: the computer takes over the human's fielding after 6000 steps without input, or once
+   *  12 runs have been run on the ball */
+  private humanAutoOff(): void {
+    const m = this.m;
+    if (m.rw(0x8602) === 0) return;
+    if (padHeld(m, m.rw(0xb526)) !== 0) { m0(m, 0xc79e); return; }
+    if (m.aw(0xc79e, 1) < 0x1770 && ballRuns(m) < 0xc) return;
+    m.ww(0x8602, 0);
+    clearArrows(m);
+    m.ww(0x86bc, -1); m.ww(0x86ba, 0); m.ww(0x86b8, 0); m.ww(0x86b6, 0);
+    restPoint(m); // sub_038F2A
+    chooseChaser(m);
+    pickChaser(m);
+    m.ww(0xc6ca, 0);
+  }
 }
 const m0 = (m: Ram, a: number) => m.ww(a, 0);
 
@@ -1697,7 +1845,27 @@ const m0 = (m: Ram, a: number) => m.ww(a, 0);
 function markerTick(m: Ram): void {
   if (m.rw(0xc784) === 0) return;
   if (m.rw(0x8602) === 0 || m.rw(0xc6d0) !== 0) { m.ww(0xc784, 0); return; }
-  throw new Error("fielding: human marker not ported yet");
+  const a0 = ptr(m, 0xc730);
+  if (m.rw(0xc78c) < 0) { m.ww(0xc786, m.rw(a0 + 0x2c)); m.ww(0xc788, m.rw(a0 + 0x30)); m.ww(0xc78c, m.rw(a0 + 0x32)); }
+  const sh = m.rw(0xc798) & 63;
+  for (const [cur, tgt] of [[0xc792, 0xc786], [0xc794, 0xc788]]) {
+    const d1 = w(m.rw(tgt) - m.rw(cur));
+    if (d1 === 0) continue;
+    let d0 = sh >= 16 ? (d1 < 0 ? -1 : 0) : w(d1 >> sh);
+    if (d0 === 0) d0 = d1 < 0 ? -1 : 1;
+    m.ww(cur, m.rw(cur) + d0);
+  }
+}
+
+/** sub_039260 -> sub_039BC2 (display): the running batsmen's sprite offsets; the second runner's
+ *  y offset is left in d6 */
+function runnerSpritesD6(m: Ram): void {
+  const a0 = C81E;
+  let d2: number;
+  if (m.rw(a0 + 0xe) >= 4) d2 = w(m.rw(a0 + 0xe) + 4);
+  else d2 = ((l(m.rl(a0 + 0xe) << 1) >>> 16) & 7);
+  if (m.rw(a0 + 8) === 0) d2 = w(d2 + 0x10);
+  m.fd6 = l((m.fd6 & ~0xffff) | (ROM.rb(0x39c23 + 2 * d2) & 0xffff));
 }
 
 /** sub_03474C -> sub_00420C / sub_0041CA: the controllers' modes for this ball; drops all presses */

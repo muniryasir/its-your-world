@@ -48,15 +48,17 @@ export function checkFieldTrace(tr: FieldTrace, verbose = false, mk: (buf: Uint8
     return { ok: false, ticks: 0, message: `setup: ${(e as Error).message}` };
   }
   const blk = () => { const mode = m.rw(0xfc1c); const slot = mode === 1 ? m.rw(0xfc1a) : m.rw(0xfc18); return slot >= 0 ? 0xfbf8 + 8 * slot : 0xfbf8; };
-  for (const [b, v] of Object.entries(tr.prev0 ?? {})) m.ww(parseInt(b, 16) + 4, v);
+  // after a VBlank the "previous" and "held" words are equal: both as when the set-up dropped the presses
+  for (const [b, v] of Object.entries(tr.prev0 ?? {})) { m.ww(parseInt(b, 16) + 4, v); m.ww(parseInt(b, 16) + 6, v); }
   const want: number[] = new Array(tr.vars.length).fill(0);
   const addr = tr.vars.map((v) => parseInt(v, 16));
   for (let i = 0; i < tr.ticks.length; i++) {
     const [reads, , loop, changed] = tr.ticks[i] as unknown as [[number, number][] | number, number, string, Record<string, number>];
     for (const [k, v] of Object.entries(changed)) want[+k] = v;
-    if (fv.done) return { ok: false, ticks: i, message: `engine ended (${fv.phase.kind === "done" ? fv.phase.end : "?"}) at step ${i}, emulator went on (${loop})` };
+    // the pad reads come first: the previous step's after-the-frame work runs after the VBlank
     if (typeof reads === "number") padFrame(m, reads);
     else for (const [b, h] of reads) if (b === blk()) padFrame(m, h);
+    if (fv.done) return { ok: false, ticks: i, message: `engine ended (${fv.phase.kind === "done" ? fv.phase.end : "?"}) at step ${i}, emulator went on (${loop})` };
     try {
       fv.step();
     } catch (e) {
