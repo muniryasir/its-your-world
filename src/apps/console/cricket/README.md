@@ -5,8 +5,9 @@ the game logic is read out of the 68000 machine code and rewritten in TypeScript
 tick against the original running in an emulator. Nothing is emulated in the browser.
 
 Branch `console/cricket` only (merged into `main` when the whole project is done). This branch also
-holds values copied from the ROM (tables, sprite collision masks, start states); the ROM itself, the
-disassembly and the original art are never committed.
+holds data extracted from the ROM (tables, sprite collision masks, start states) and, from phase 3, the
+original art (decoded sprites and backgrounds; Yasir's decision, 2026-10-29). The ROM itself and the
+disassembly are never committed.
 
 ## What works (phase 2: batting)
 
@@ -67,6 +68,6 @@ listed below.
 - **The machine's set-up** (choosing its line, the meters) runs four ticks per frame, so balls come
   quicker. Same logic, less waiting.
 - **The look** is ours (silhouettes, night ground, our pitch and creases drawn through the original's
-  projection). The original's background art is not used.
+  projection). The original art comes in phase 3.
 - Balls faced feed the original's misjudge rolls; the rest of the batsman's and bowler's records are the
   recorded match's (England's openers, first over).
