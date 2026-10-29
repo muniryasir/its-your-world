@@ -3,6 +3,7 @@
 // sub_04336A / sub_0434D2 / sub_043C54 (computer aim), sub_0439BA (marker), sub_04BDFA / sub_04BE9E
 // (swing/spin meter), sub_04BF62 / sub_04C082 (pace/line meter), sub_04C10A, sub_04C2BE.
 
+import { padPresses } from "./pads";
 import { Ram, ROM, SIN, COS } from "./mem";
 import { w, l, muls, mulu, divs, divu } from "./m68k";
 import { Context } from "./context";
@@ -209,6 +210,8 @@ export function computerAim(m: Ram, ctx: Context): void {
 
 /** sub_043A38 for the computer bowler: "presses A" once the aim path has finished */
 export function computerButton(m: Ram): number {
+  // a human bowler's presses; and the human's presses once a ball has been fielded ($86B2 >= 0)
+  if (m.rw(0xb526) >= 0 || m.rw(0x86b2) >= 0) return padPresses(m, m.rw(0xb526));
   if (m.rw(0xd1f6) === 1 && m.rw(MARKER_SPL + 6) < 0) {
     m.aw(0xd1f6, 1);
     m.ww(0xd1d4, -1);

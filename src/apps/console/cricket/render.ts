@@ -5,8 +5,9 @@
 import type { Ram } from "./engine/mem";
 import { projectFloat } from "./engine/project";
 import { getMask } from "./engine/collide";
-import type { View, Sprite } from "./engine/practice";
+import type { View, Sprite, FieldScene } from "./engine/practice";
 import { BOUNDARY } from "./engine/practice";
+import { fieldScreen, outside } from "./engine/fieldlib";
 
 export const SCREEN_W = 320;
 export const SCREEN_H = 224;
@@ -52,6 +53,7 @@ const STARS = Array.from({ length: 70 }, (_, i) => {
 
 /** draw one frame. `scale` = canvas pixels per original screen pixel */
 export function drawScene(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: number, time: number): void {
+  if (view.field) return drawField(ctx, m, view.field, scale);
   ctx.save();
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.imageSmoothingEnabled = false;
@@ -188,4 +190,83 @@ export function drawScene(ctx: CanvasRenderingContext2D, m: Ram, view: View, sca
 /** top-down map of where the ball went (SVG path in world units, batsman's end at the top) */
 export function fieldMapPath(path: [number, number][]): string {
   return path.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(0)} ${(-y).toFixed(0)}`).join(" ");
+}
+
+// ---------------------------------------------------------------- the fielding view (from above)
+
+/** the rope in world units, traced from the original's boundary test (sub_035090) */
+let ropeWorld: [number, number][] | null = null;
+function rope(): [number, number][] {
+  if (ropeWorld) return ropeWorld;
+  ropeWorld = [];
+  for (let a = 0; a < 360; a += 2) {
+    const r = (a * Math.PI) / 180, dx = Math.sin(r), dy = Math.cos(r);
+    let lo = 0, hi = 20000;
+    for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (outside(Math.round(dx * mid), Math.round(dy * mid))) hi = mid; else lo = mid; }
+    ropeWorld.push([dx * lo, dy * lo]);
+  }
+  return ropeWorld;
+}
+
+const FIELD_COLORS = { field: "#2ed3a0", bat: "#f3f0ff", ball: "#ff5a5f" };
+
+/** draw the fielding view: the ground from above, fielders, the batsmen running, the ball */
+export function drawField(ctx: CanvasRenderingContext2D, m: Ram, f: FieldScene, scale: number): void {
+  ctx.save();
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  const S = (x: number, y: number): [number, number] => fieldScreen(m, Math.round(x), 0, Math.round(y));
+  ctx.fillStyle = "#0b1027"; // beyond the rope
+  ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+  const path = (pts: [number, number][]) => {
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => { const [sx, sy] = S(x, y); if (i) ctx.lineTo(sx, sy); else ctx.moveTo(sx, sy); });
+    ctx.closePath();
+  };
+  const ground = rope();
+  path(ground);
+  ctx.fillStyle = "#14524a";
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = "rgba(255,255,255,0.035)"; // mowing stripes, along the pitch
+  for (let x = -9000; x < 9000; x += 180) { path([[x, -9000], [x + 90, -9000], [x + 90, 9000], [x, 9000]]); ctx.fill(); }
+  ctx.restore();
+  path(ground);
+  ctx.strokeStyle = "#ffd23f";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // the square, the pitch and the creases
+  path([[-0x50, -0x4c0], [0x50, -0x4c0], [0x50, 0x4c0], [-0x50, 0x4c0]]);
+  ctx.fillStyle = "#5d5140";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(244,241,255,0.75)";
+  ctx.lineWidth = 0.7;
+  for (const s of [-1, 1]) {
+    const [ax, ay] = S(-0x9c, s * 0x370), [bx, by] = S(0x9c, s * 0x370);
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    const [cx, cy] = S(0, s * 0x400);
+    ctx.fillStyle = "#ffd23f";
+    ctx.fillRect(cx - 2, cy - 0.75, 4, 1.5); // the stumps
+  }
+  // players
+  for (const p of f.players) {
+    const r = p.side === "bat" ? 3.2 : 3.6;
+    const a = (p.facing / 2048) * Math.PI * 2;
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.beginPath(); ctx.ellipse(p.x + 1, p.y + 1.5, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = FIELD_COLORS[p.side];
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+    // facing: world angle (0 = +x, counter-clockwise towards +y, which is up the screen)
+    ctx.strokeStyle = "#0b1027";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + Math.cos(a) * r, p.y - Math.sin(a) * r * 0.6); ctx.stroke();
+    if (p.ball) { ctx.fillStyle = FIELD_COLORS.ball; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * r, p.y - Math.sin(a) * r * 0.6, 1.3, 0, Math.PI * 2); ctx.fill(); }
+  }
+  if (f.ball) {
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.beginPath(); ctx.ellipse(f.ball.gx, f.ball.gy, 1.8, 1.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = FIELD_COLORS.ball;
+    ctx.beginPath(); ctx.arc(f.ball.x, f.ball.y, 1.6, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
 }

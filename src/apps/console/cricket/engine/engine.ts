@@ -17,6 +17,7 @@ import {
   computerSwingButton, computerMeterButton, paceInit,
 } from "./delivery";
 import { rngNextAt } from "./rngAt";
+import { padPresses } from "./pads";
 import { projectCam } from "./project";
 import { angleTo } from "./trig";
 import { w, l, muls, setLo } from "./m68k";
@@ -46,6 +47,7 @@ export type Phase =
   | { kind: "paceWait" }
   | { kind: "runup"; left: number }
   | { kind: "live" }
+  | { kind: "handover"; left: number }
   | { kind: "done"; reason: EndReason };
 
 /** passes between the per-delivery set-up and the aim (camera settle, 13 passes, 1 more) */
@@ -144,9 +146,26 @@ export class Engine {
         }
         this.checkDue = true;
         return;
+      case "handover":
+        computerAim(m, this.ctx); // sub_04336A
+        this.tick(input);
+        this.checkDue = true;
+        return;
       case "done":
         return;
     }
+  }
+
+  /** $ED2E: the ball left the batting view ("offscreen" / "settled"). The batting view keeps running
+   *  for 15 passes (sub_00ED82 with d7 = 14) before the fielding view takes over; done again after. */
+  handOver(): void {
+    const m = this.m;
+    // sub_03AD7C
+    if (m.rw(0xc8a2) >= 0 && m.rw(0xc8a2) !== 2) m.ww(0xc8a2, 2);
+    m.wb(0xbf22, 0xff);
+    padPresses(m, 0); padPresses(m, 1); // sub_00425E: presses so far are dropped
+    this.phase = { kind: "handover", left: 14 };
+    this.checkDue = false;
   }
 
   private meterAdvance(): void {
@@ -208,6 +227,12 @@ export class Engine {
         if (end) this.phase = { kind: "done", reason: end };
         return;
       }
+      case "handover":
+        if (computerButton(m) !== 0 || --ph.left < 0) {
+          m.ww(0xbf22, 0); m.ww(0xe58c, 0); m.wb(0x87f6, 0xff); m.ww(0x87f8, 0);
+          this.phase = { kind: "done", reason: "offscreen" };
+        }
+        return;
       default:
         return;
     }

@@ -1,4 +1,4 @@
-// /console/cricket: batting practice (phase 2 of Console Cricket, branch console/cricket only)
+// /console/cricket: batting practice (Console Cricket, branch console/cricket only)
 import { Nets } from "./Nets";
 import "./cricket.css";
 
@@ -11,7 +11,7 @@ export function CricketPage() {
           <h1>Batting practice</h1>
           <p className="cc-lead">Face a bowling machine that thinks like the original game's bowler: rebuilt from the Mega Drive cartridge, not emulated.</p>
         </div>
-        <span className="cc-badge">Work in progress · phase 2</span>
+        <span className="cc-badge">Work in progress · phase 3</span>
       </header>
       <Nets />
     </div>

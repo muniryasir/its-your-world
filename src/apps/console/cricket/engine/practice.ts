@@ -1,18 +1,21 @@
 // Batting practice against a bowling machine: the game layer on top of the engine.
 // The machine is the original game's computer bowler (its aim, meters, run-up and release), set to a
-// bowler type, arm and accuracy. Everything up to the end of the delivery is the original's logic.
-// What happens after the ball leaves the batting view (fielding, running between the wickets) comes
-// in phase 3; until then runs use the simple rule in `runsFor` below.
+// bowler type, arm and accuracy. Everything is the original's logic: the delivery in the batting view,
+// then (when the ball leaves it) the fielding view with the computer's fielders, running between the
+// wickets and run outs. The striker stays on strike (it's the nets).
 
 import { Ram, ROM } from "./mem";
 import { Engine, Input, EndReason } from "./engine";
 import { Context } from "./context";
 import { BASE_RAM_LEFT, BASE_RAM_RIGHT, BASE_CONTEXT_LEFT, BASE_CONTEXT_RIGHT } from "./baseState";
-import { ballStep } from "./ball";
 import { projectCam } from "./project";
 import { rngNext } from "./rng";
 import { bodyScreen } from "./batsman";
 import { fielderPtrs, fielderSprite } from "./fielders";
+import { FieldView, ballRuns } from "./fielding";
+import { fieldScreen } from "./fieldlib";
+import { padFrame, padPresses } from "./pads";
+import { setUpField } from "./teams";
 import { MASKS } from "./maskData";
 import { w } from "./m68k";
 
@@ -28,8 +31,8 @@ export interface Settings {
 }
 export const DEFAULT_SETTINGS: Settings = { bowler: "fast", leftArm: false, accuracy: 70, batsman: "left", difficulty: 1 };
 
-export type Outcome = "dot" | "runs" | "four" | "six" | "wide" | "bowled" | "lbw" | "caught";
-export interface BallResult { outcome: Outcome; runs: number; text: string; reason: EndReason | "flight" }
+export type Outcome = "dot" | "runs" | "four" | "six" | "wide" | "bowled" | "lbw" | "caught" | "runout";
+export interface BallResult { outcome: Outcome; runs: number; text: string; reason: EndReason | "field" }
 export interface Score { runs: number; balls: number; wickets: number; fours: number; sixes: number; dots: number; extras: number }
 
 /** pad bits as the original reads them (S A C B R L D U). A = shot along the ground, B = lofted shot */
@@ -38,7 +41,8 @@ export const PAD = { U: 1, D: 2, L: 4, R: 8, B: 0x10, C: 0x20, A: 0x40, S: 0x80 
 /** bowler record +$14 magnitude per type (the sign is the bowling arm) */
 const BOWLER_TYPE: Record<BowlerKind, number> = { fast: 1, spin: 2, swing: 4 };
 
-/** distance of the rope from the middle of the pitch (placeholder until the fielding phase) */
+/** about how far the rope is from the middle of the pitch (for the batting view's drawing; the
+ *  fielding view uses the original's own boundary test, sub_035090) */
 export const BOUNDARY = 6400;
 /** where the striker's popping crease is (world y) */
 export const STRIKER_CREASE = 0x370;
@@ -56,13 +60,14 @@ export class Practice {
   result: BallResult | null = null;
   /** the ball's path over the ground after it was hit (world x, y), for the field map */
   path: [number, number][] = [];
-  private flight: { ticks: number } | null = null;
-  /** the hit ball touched the ground (decides four or six) */
-  private bounced = false;
+  /** the fielding view, once the ball has left the batting view */
+  field: FieldView | null = null;
+  private handedOver = false;
+  private fieldSteps = 0;
 
-  constructor(seed: number, settings: Settings = DEFAULT_SETTINGS) {
+  constructor(seed: number, settings: Settings = DEFAULT_SETTINGS, private start: (batsman: Settings["batsman"]) => Ram = startRam) {
     this.settings = { ...settings };
-    this.m = startRam(this.settings.batsman);
+    this.m = this.start(this.settings.batsman);
     // seed the original's random generator
     let s = (seed & 0xffff) || 0x5eed;
     for (let i = 0; i < 4; i++) s = rngNext(s) & 0xffff;
@@ -83,9 +88,9 @@ export class Practice {
   }
 
   /** what the player is looking at */
-  get phase(): "bowling" | "live" | "flight" | "result" {
+  get phase(): "bowling" | "live" | "field" | "result" {
     if (this.result) return "result";
-    if (this.flight) return "flight";
+    if (this.field) return "field";
     const k = this.engine.phase.kind;
     return k === "live" ? "live" : k === "done" ? "result" : "bowling";
   }
@@ -96,7 +101,7 @@ export class Practice {
       if (settings.batsman !== this.settings.batsman) {
         // the other batsman comes in: his start state (field mirrored), keeping the random sequence
         const rng = this.m.rw(0xe8e8);
-        this.m = startRam(settings.batsman);
+        this.m = this.start(settings.batsman);
         this.m.ww(0xe8e8, rng);
         this.engine = new Engine(this.m, this.context(), { kind: "done", reason: "dead" });
       }
@@ -104,29 +109,60 @@ export class Practice {
     }
     const m = this.m;
     this.result = null;
-    this.flight = null;
-    this.bounced = false;
+    this.field = null;
+    this.handedOver = false;
+    this.fieldSteps = 0;
     this.path = [];
     m.ww(0x8604, this.settings.difficulty);
     if (this.ballInOver === 0) { m.ww(0xd1fe, 0); m.ww(0xd200, 0); } // a new over: bouncer and yorker counts
     m.ww(0xbe98, this.ballInOver); // balls bowled in the over (the computer bowler's plan reads it)
     m.ww(0xbed8, 0);
-    this.engine.ctx = this.context();
+    m.ww(0xbe68 + 0x32 + 2 * this.ballInOver, 0); // runs off this ball
+    for (const a of [0xbee0, 0xbee2, 0xc7e4]) m.ww(a, 0);
+    const ctx = this.context();
+    this.engine.ctx = ctx;
+    // the machine's attributes in its player record, where the fielding side's code reads them
+    const bowler = bowlerEntry(m);
+    if (bowler >= 0) { m.ww(bowler + 0x12, ctx.bowler.a12); m.ww(bowler + 0x14, ctx.bowler.a14); }
     this.engine.newDelivery();
+    setUpField(m); // sub_046FA2 (from sub_00E13E): the field for this delivery
   }
 
   /** one game tick (the original runs about 42 a second here) */
   tick(input: Input): void {
     if (this.result) return;
-    if (this.flight) return this.flightTick();
+    if (this.field) return this.fieldTick(input);
     this.engine.step(input);
-    const m = this.m;
-    if (m.rw(0x8606) !== 0 && m.rw(0xe5a2) !== 0 && m.rl(0xe5b8) === 0) this.bounced = true;
     const ph = this.engine.phase;
-    if (ph.kind === "done") this.endOfDelivery(ph.reason);
+    if (ph.kind === "done") this.endOfDelivery(ph.reason, input);
   }
 
-  private endOfDelivery(reason: EndReason): void {
+  /** one step of the fielding view (one per 50 Hz frame) */
+  private fieldTick(input: Input): void {
+    const m = this.m, fv = this.field!;
+    padFrame(m, input.held); // the VBlank handler, for the batsman's pad
+    fv.step();
+    if (++this.fieldSteps % 3 === 0 && m.rw(0xe5a2) !== 0) this.path.push([m.rw(0xe5b4), m.rw(0xe5bc)]);
+    if (fv.done || this.fieldSteps > 3000) this.endOfField();
+  }
+
+  private endOfField(): void {
+    const m = this.m, fv = this.field!;
+    const end = fv.phase.kind === "done" ? fv.phase.end : "dead";
+    this.path.push([m.rw(0xe5b4), m.rw(0xe5bc)]);
+    const runs = ballRuns(m);
+    const how = m.rw(0xbee2);
+    const plural = (n: number) => `${n} run${n === 1 ? "" : "s"}`;
+    if (how === 4) return this.finish({ outcome: "caught", runs: 0, text: "Caught!", reason: "field" });
+    if (how === 5) return this.finish({ outcome: "runout", runs, text: runs ? `Run out! (${plural(runs)} completed)` : "Run out!", reason: "field" });
+    if (end === "boundary") {
+      const six = m.rw(0x8606) !== 0 && m.rw(0xc7ca) === 0 && m.rw(0xe580) === 0;
+      return this.finish({ outcome: six ? "six" : "four", runs, text: six ? "Six!" : "Four!", reason: "field" });
+    }
+    this.finish({ outcome: runs ? "runs" : "dot", runs, text: runs ? plural(runs) : "No run", reason: "field" });
+  }
+
+  private endOfDelivery(reason: EndReason, input: Input): void {
     const m = this.m;
     const how = m.rw(0xbee2);
     if (how !== 0) {
@@ -140,41 +176,25 @@ export class Practice {
       const text = reason === "fielder" ? (hit ? "Stopped by the keeper" : "Taken by the keeper") : hit ? "Blocked" : "No run";
       return this.finish({ outcome: "dot", runs: 0, text, reason });
     }
-    // hit and still moving when the batting view hands over (the original cuts to the fielding view here):
-    // follow it until it stops or reaches the rope
-    this.flight = { ticks: 0 };
-    this.path = [[m.rw(0xe5b4), m.rw(0xe5bc)]];
-  }
-
-  private flightTick(): void {
-    const m = this.m;
-    const f = this.flight!;
-    // a few steps per tick: the field map plays the rest of the ball's journey quickly
-    for (let i = 0; i < 3; i++) {
-      if (m.rw(0xe58c) !== 0) m.ww(0xe58c, 0);
-      m.ww(0xe936, m.rw(0xe5a2));
-      ballStep(m, () => {});
-      if (m.rl(0xe5b8) === 0) this.bounced = true;
-      f.ticks++;
-      const x = m.rw(0xe5b4), y = m.rw(0xe5bc);
-      if (f.ticks % 3 === 0) this.path.push([x, y]);
-      if (Math.hypot(x, y) >= BOUNDARY) {
-        this.path.push([x, y]);
-        const six = !this.bounced;
-        return this.finish({ outcome: six ? "six" : "four", runs: six ? 6 : 4, text: six ? "Six!" : "Four!", reason: "flight" });
-      }
-      const still = m.rl(0xe5a8) === 0 && m.rl(0xe5b0) === 0 && m.rw(0xe5a2) >= 3;
-      if (still || f.ticks > 2000) {
-        this.path.push([x, y]);
-        const runs = runsFor(x, y);
-        const text = runs ? `${runs} run${runs > 1 ? "s" : ""}` : "No run";
-        return this.finish({ outcome: runs ? "runs" : "dot", runs, text, reason: "flight" });
-      }
+    if (!this.handedOver) {
+      // the ball left the batting view: 15 more passes of it, in the same frame as this check
+      this.handedOver = true;
+      this.path = [[m.rw(0xe5b4), m.rw(0xe5bc)]];
+      this.engine.handOver();
+      this.engine.step(input);
+      return;
     }
+    // then the fielding view takes over (sub_0343E2)
+    const fv = new FieldView(m, {
+      fielding: (r) => padPresses(r, r.rw(0xb526)),
+      batting: (r) => padPresses(r, r.rw(0xb520)),
+    });
+    fv.setup();
+    this.field = fv;
   }
 
   private finish(r: BallResult): void {
-    this.flight = null;
+    this.field = null;
     this.result = r;
     const s = this.score;
     if (r.outcome === "wide") { s.extras += 1; s.runs += 1; return; }
@@ -184,14 +204,14 @@ export class Practice {
     if (r.outcome === "four") s.fours++;
     if (r.outcome === "six") s.sixes++;
     if (r.runs === 0) s.dots++;
-    if (r.outcome === "bowled" || r.outcome === "lbw" || r.outcome === "caught") s.wickets++;
+    if (r.outcome === "bowled" || r.outcome === "lbw" || r.outcome === "caught" || r.outcome === "runout") s.wickets++;
   }
 
   // ---------------------------------------------------------------- what to draw
 
   view(): View {
-    const ball = !this.flight && !this.result;
-    return { phase: this.phase, ...scene(this.m, this.engine.phase.kind, ball) };
+    if (this.field) return { phase: "field", ...fieldScene(this.m) };
+    return { phase: this.phase, ...scene(this.m, this.engine.phase.kind, !this.result) };
   }
 
   /** world point (x, height, y) to screen, through the original's camera */
@@ -201,14 +221,46 @@ export class Practice {
 }
 
 export interface Sprite { kind: "bowler" | "batsman" | "stumps" | "fielder"; x: number; y: number; frame: number; depth: number }
+/** the fielding view from above: screen points through the original's field projection (sub_034FA8) */
+export interface FieldScene {
+  /** players: screen x, y, facing (0..2047, 0 = +x), running frame, team */
+  players: { x: number; y: number; facing: number; frame: number; side: "field" | "bat"; ball: boolean }[];
+  ball?: { x: number; y: number; gx: number; gy: number };
+  /** camera: world point at the screen's centre (for drawing the ground) */
+  cam: [number, number];
+}
 export interface View {
-  phase: "bowling" | "live" | "flight" | "result";
+  phase: "bowling" | "live" | "field" | "result";
   enginePhase: string;
   /** far to near */
   sprites: Sprite[];
   ball?: { sx: number; sy: number; hx: number; hy: number; r: number; depth: number };
   marker?: [number, number][];
   meters?: { pace: number; line: number; swing: number };
+  field?: FieldScene;
+}
+
+/** the fielding view: fielders (records at $B522), the two batsmen running ($C800, $C81E) and the ball */
+export function fieldScene(m: Ram): Omit<View, "phase"> {
+  const players: FieldScene["players"] = [];
+  const base = m.rl(0xb522) & 0xffff;
+  const holder = m.rl(0xc730) & 0xffff;
+  for (let i = 0; i < 11; i++) {
+    const a0 = base + 0x68 * i;
+    const [x, y] = fieldScreen(m, m.rw(a0 + 0x3c), 0, m.rw(a0 + 0x44));
+    players.push({ x, y, facing: m.rw(a0 + 0x56) & 0x7ff, frame: m.rw(a0 + 0x5e), side: "field", ball: m.rw(0xe5a2) === 0 && a0 === holder });
+  }
+  for (const a0 of [0xc800, 0xc81e]) {
+    const [x, y] = fieldScreen(m, m.rw(a0), 0, m.rw(a0 + 4));
+    players.push({ x, y, facing: m.rw(a0 + 8) === 0 ? 0x600 : 0x200, frame: m.rw(a0 + 0xe), side: "bat", ball: false });
+  }
+  let ball: FieldScene["ball"];
+  if (m.rw(0xe5a2) !== 0) {
+    const [x, y] = fieldScreen(m, m.rw(0xe5b4), w(-m.rw(0xe5b8)), m.rw(0xe5bc));
+    const [gx, gy] = fieldScreen(m, m.rw(0xe5b4), 0, m.rw(0xe5bc));
+    ball = { x, y, gx, gy };
+  }
+  return { enginePhase: "field", sprites: [], field: { players, ball, cam: [m.rw(0x8d08), m.rw(0x8d02)] } };
 }
 
 /** the batting view for the current RAM: sprites as the original places them, ball, aim marker, meters */
@@ -262,13 +314,11 @@ export function scene(m: Ram, ph: string, showBall = true): Omit<View, "phase"> 
   return v;
 }
 
-/** runs for a hit ball that stopped inside the rope (phase 2 placeholder for fielding and running) */
-export function runsFor(x: number, y: number): number {
-  const d = Math.hypot(x, y - STRIKER_CREASE);
-  if (d < 1600) return 0;
-  if (d < 3200) return 1;
-  if (d < 4800) return 2;
-  return 3;
+/** the bowler's player entry (fielder record with role 1, its +2 pointer) */
+function bowlerEntry(m: Ram): number {
+  const base = m.rl(0xb522) & 0xffff;
+  for (let i = 0; i < 11; i++) if (m.rw(base + 0x68 * i + 6) === 1) return m.rl(base + 0x68 * i + 2) & 0xffff;
+  return -1;
 }
 
 /** sub_0438F8: the aim marker's corners on the pitch (x ± size, y ± 3 size) */

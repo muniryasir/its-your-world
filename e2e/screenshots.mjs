@@ -118,6 +118,14 @@ await page.waitForTimeout(1200);
 await shot(page, "cricket-runup-desktop", false);
 await page.locator(".cc-result").waitFor({ timeout: 30000 });
 await shot(page, "cricket-result-desktop", false);
+// a fixed delivery that the demo batsman drives into the field: the fielding view, then the result
+await page.goto(BASE + "/console/cricket?cc-seed=13&cc-demo", { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "Face the first ball" }).click();
+await page.getByText("Z: run").waitFor({ timeout: 40000 });
+await page.waitForTimeout(1500);
+await shot(page, "cricket-field-desktop", false);
+await page.locator(".cc-result").waitFor({ timeout: 40000 });
+await shot(page, "cricket-field-result-desktop", false);
 
 // New user: empty world, catalog, app gate
 page = await newPage();

@@ -5,8 +5,9 @@ import { Practice, PAD, DEFAULT_SETTINGS, BOUNDARY, oversText } from "./engine/p
 import type { Settings, BallResult, Score, BowlerKind } from "./engine/practice";
 import { drawScene, fieldMapPath, SCREEN_W, SCREEN_H } from "./render";
 
-/** the original runs one game tick per 50 Hz (PAL) frame, except while the ball is live: the extra
- *  drawing there drops it to about 41 ticks a second (measured in the emulator) */
+/** the original runs one game tick per 50 Hz (PAL) frame, except while the ball is live in the batting
+ *  view: the extra drawing there drops it to about 41 ticks a second (measured in the emulator). The
+ *  fielding view runs one step per frame. */
 const TICK_MS = 1000 / 50;
 const LIVE_TICK_MS = 1000 / 41;
 const SCALE = 3;
@@ -29,6 +30,21 @@ interface Hud {
   started: boolean;
 }
 
+/** `?cc-seed=N` fixes the random sequence and `?cc-demo` plays the shots itself (for screenshots) */
+function urlOptions(): { seed?: number; demo: boolean } {
+  if (typeof location === "undefined") return { demo: false };
+  const q = new URLSearchParams(location.search);
+  const s = q.get("cc-seed");
+  return { seed: s ? Number(s) : undefined, demo: q.has("cc-demo") };
+}
+
+/** the demo batsman: one drive along the ground as the ball arrives */
+function demoPad(g: Practice, state: { shot: number; t: number }): number {
+  state.t++;
+  if (state.shot < 0 && g.phase === "live" && g.m.rw(0xe5a2) !== 0 && g.m.rw(0xe5bc) > 0x100) state.shot = state.t;
+  return state.shot >= 0 && state.t < state.shot + 3 ? PAD.U | PAD.L | PAD.A : 0;
+}
+
 export function Nets({ seed }: { seed?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<Practice | null>(null);
@@ -46,13 +62,16 @@ export function Nets({ seed }: { seed?: number }) {
   const hudStarted = useRef(false);
   hudStarted.current = hud.started;
 
-  if (!gameRef.current) gameRef.current = new Practice(seed ?? (Date.now() & 0xffff), DEFAULT_SETTINGS);
+  const opts = useRef(urlOptions()).current;
+  const demoRef = useRef({ shot: -1, t: 0 });
+  if (!gameRef.current) gameRef.current = new Practice(seed ?? opts.seed ?? (Date.now() & 0xffff), DEFAULT_SETTINGS);
 
   const bowl = useCallback(() => {
     const g = gameRef.current!;
     if (g.phase !== "result") return;
     if (g.ballInOver === 0 && overRef.current.length >= 6) overRef.current = [];
     g.nextBall(pendingSettings.current);
+    demoRef.current = { shot: -1, t: 0 };
     setHud((h) => ({ ...h, started: true, result: null, phase: g.phase, path: [] }));
   }, []);
 
@@ -103,21 +122,25 @@ export function Nets({ seed }: { seed?: number }) {
       let changed = false;
       if (!paused) {
         for (;;) {
-          const step = g.phase === "live" || g.phase === "flight" ? LIVE_TICK_MS : TICK_MS;
+          const step = g.phase === "live" ? LIVE_TICK_MS : TICK_MS;
           if (acc < step || g.phase === "result") break;
           acc -= step;
           const before = g.phase;
           // the machine's set-up runs SETUP_SPEED ticks per frame; the run-up and the ball run in real time
           for (let i = 0; i === 0 || (i < SETUP_SPEED && SETUP_PHASES.has(g.engine.phase.kind)); i++) {
+            if (opts.demo) {
+              const d = demoPad(g, demoRef.current);
+              pressedRef.current |= d & ~heldRef.current;
+              heldRef.current = d;
+            }
             g.tick({ held: heldRef.current, pressed: pressedRef.current });
             pressedRef.current = 0;
           }
           if (g.phase !== before) changed = true;
-          if (g.phase === "flight" || before === "flight") changed = true;
         }
         if (acc > LIVE_TICK_MS) acc = 0;
       } else acc = 0;
-      const st = g.phase === "bowling" || g.phase === "live" ? stageLabel(g.engine.phase.kind) : "";
+      const st = g.phase === "field" ? "Z: run · Z again: turn back" : g.phase === "bowling" || g.phase === "live" ? stageLabel(g.engine.phase.kind) : "";
       if (st !== stageRef.current) { stageRef.current = st; setStage(st); }
       if (changed) {
         if (g.result && resultAt.current === 0) {
@@ -209,14 +232,14 @@ export function Nets({ seed }: { seed?: number }) {
         <section className="cc-panel cc-about">
           <h2>What's rebuilt so far</h2>
           <p className="cc-muted">
-            Everything up to the end of the delivery runs on logic rebuilt from the original game's code: how the
-            bowler picks his line and length, the ball's swing, bounce and spin, your footwork, timing and where the
-            ball goes off the bat, the keeper and slips, bowled, LBW, caught and wides. It is checked tick by tick
-            against recordings of the original.
+            Everything runs on logic rebuilt from the original game's code: how the bowler picks his line and
+            length, the ball's swing, bounce and spin, your footwork, timing and where the ball goes off the bat, the
+            keeper and slips, bowled, LBW, caught and wides; then, once the ball leaves the batting view, the
+            fielders chasing, catching and throwing, running between the wickets, run outs and boundaries. It is
+            checked tick by tick against recordings of the original.
           </p>
           <p className="cc-muted">
-            Fielding and running between the wickets come next. Until then a hit that stops inside the rope scores
-            0–3 by distance, and one that reaches it scores four, or six on the full.
+            It's the nets: you stay on strike. Bowling to a computer batsman comes next.
           </p>
         </section>
       </div>
@@ -274,6 +297,7 @@ export function Nets({ seed }: { seed?: number }) {
             <div><dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Shot direction (diagonals too): up drives, down plays back, sideways cuts and pulls</dd></div>
             <div><dt><kbd>Z</kbd></dt><dd>With a direction: keep the shot along the ground</dd></div>
             <div><dt><kbd>X</kbd></dt><dd>With a direction: loft it</dd></div>
+            <div><dt><kbd>Z</kbd></dt><dd>After the shot: run (and again to turn back for the next run)</dd></div>
             <div><dt><kbd>Space</kbd></dt><dd>Next ball</dd></div>
             <div><dt><kbd>P</kbd></dt><dd>Pause</dd></div>
           </dl>
@@ -298,7 +322,7 @@ function emptyScore(): Score {
 function ballMark(r: BallResult): string {
   switch (r.outcome) {
     case "wide": return "wd";
-    case "bowled": case "lbw": case "caught": return "W";
+    case "bowled": case "lbw": case "caught": case "runout": return "W";
     case "dot": return "•";
     default: return String(r.runs);
   }
