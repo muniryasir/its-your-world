@@ -184,7 +184,32 @@ export function drawScene(ctx: CanvasRenderingContext2D, m: Ram, view: View, sca
     });
   items.sort((a, b) => b.depth - a.depth).forEach((it) => it.draw());
 
+  if (view.meters) drawMeters(ctx, view.meters);
   ctx.restore();
+}
+
+/** your bowling meters, bottom left: swing/spin direction, the power needle, the run-up pace */
+function drawMeters(ctx: CanvasRenderingContext2D, mt: NonNullable<View["meters"]>): void {
+  const x = 8, y = SCREEN_H - 46, w = 74, h = 38;
+  ctx.fillStyle = "rgba(12,14,46,0.78)";
+  ctx.strokeStyle = "rgba(201,196,242,0.25)";
+  ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 4); ctx.fill(); ctx.stroke();
+  ctx.font = "600 5.5px system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+  const bar = (by: number, label: string, v: number, color: string, live: boolean) => {
+    ctx.fillStyle = live ? "#f3f0ff" : "rgba(185,181,223,0.7)";
+    ctx.fillText(label, x + 4, by + 2);
+    ctx.fillStyle = "rgba(243,240,255,0.1)";
+    ctx.fillRect(x + 26, by, 44, 4);
+    ctx.fillStyle = color;
+    ctx.fillRect(x + 26, by, 44 * v, 4);
+  };
+  const turn = mt.swing === 0 ? "" : mt.swing < 0 ? "◀ in" : "out ▶";
+  ctx.fillStyle = mt.stage === "swing" ? "#ffd23f" : "rgba(185,181,223,0.7)";
+  ctx.fillText(mt.swing === 0 ? "Fast" : `Move ${turn}`, x + 4, y + 7);
+  bar(y + 16, "Power", mt.power, mt.power > 0.85 ? "#ffd23f" : "#2ed3a0", mt.stage === "meter");
+  bar(y + 27, "Pace", mt.pace, "#ff5fa2", mt.stage === "runup");
 }
 
 /** top-down map of where the ball went (SVG path in world units, batsman's end at the top) */
@@ -248,12 +273,23 @@ export function drawField(ctx: CanvasRenderingContext2D, m: Ram, f: FieldScene, 
     ctx.fillStyle = "#ffd23f";
     ctx.fillRect(cx - 2, cy - 0.75, 4, 1.5); // the stumps
   }
+  // your target (human fielding)
+  if (f.target) {
+    const { x, y } = f.target;
+    ctx.strokeStyle = "rgba(255,210,63,0.85)"; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.ellipse(x, y, 5, 3.4, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 7, y); ctx.lineTo(x - 3, y); ctx.moveTo(x + 3, y); ctx.lineTo(x + 7, y); ctx.stroke();
+  }
   // players
   for (const p of f.players) {
     const r = p.side === "bat" ? 3.2 : 3.6;
     const a = (p.facing / 2048) * Math.PI * 2;
     ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.beginPath(); ctx.ellipse(p.x + 1, p.y + 1.5, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+    if (p.you) {
+      ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r + 2.2, 0, Math.PI * 2); ctx.stroke();
+    }
     ctx.fillStyle = FIELD_COLORS[p.side];
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
     // facing: world angle (0 = +x, counter-clockwise towards +y, which is up the screen)
@@ -267,6 +303,17 @@ export function drawField(ctx: CanvasRenderingContext2D, m: Ram, f: FieldScene, 
     ctx.beginPath(); ctx.ellipse(f.ball.gx, f.ball.gy, 1.8, 1.2, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = FIELD_COLORS.ball;
     ctx.beginPath(); ctx.arc(f.ball.x, f.ball.y, 1.6, 0, Math.PI * 2); ctx.fill();
+    // off the screen: an arrow at the edge, pointing at it
+    const { gx, gy } = f.ball, M = 9;
+    if (gx < 0 || gx > SCREEN_W || gy < 0 || gy > SCREEN_H) {
+      const cx = SCREEN_W / 2, cy = SCREEN_H / 2, dx = gx - cx, dy = gy - cy;
+      const k = Math.min((cx - M) / Math.abs(dx || 1e-6), (cy - M) / Math.abs(dy || 1e-6));
+      const ax = cx + dx * k, ay = cy + dy * k, a = Math.atan2(dy, dx);
+      ctx.save(); ctx.translate(ax, ay); ctx.rotate(a);
+      ctx.fillStyle = FIELD_COLORS.ball;
+      ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-3, -4); ctx.lineTo(-1, 0); ctx.lineTo(-3, 4); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
   }
   ctx.restore();
 }

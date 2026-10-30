@@ -159,3 +159,20 @@
   position: absolute; left: 12px; top: 12px; padding: 5px 12px; border-radius: 999px;
   font: 600 0.78rem var(--cc-text); color: var(--cc-ink); background: rgba(12, 14, 46, 0.78); border: 1px solid var(--cc-line);
 }
+
+/* practice mode switch: bat / bowl */
+.cc-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px; border-radius: 18px; background: rgba(12, 14, 46, 0.55); border: 1px solid var(--cc-line); }
+.cc-mode {
+  display: grid; gap: 2px; text-align: left; padding: 10px 14px; border-radius: 13px; border: 0; cursor: pointer;
+  background: transparent; color: var(--cc-ink); font: 700 1rem var(--cc-cosmic); letter-spacing: -0.02em;
+}
+.cc-mode span { font: 500 0.8rem var(--cc-text); color: var(--cc-muted); letter-spacing: 0; }
+.cc-mode:hover { background: rgba(243, 240, 255, 0.05); }
+.cc-mode.on { background: var(--cc-teal); color: var(--cc-deep); }
+.cc-mode.on span { color: rgba(12, 14, 46, 0.75); }
+.cc-check--panel { color: var(--cc-ink); }
+@media (max-width: 520px) {
+  .cc-overlay { gap: 8px; padding: 12px; }
+  .cc-overlay-text { font-size: 0.82rem; line-height: 1.35; }
+  .cc-overlay-hint { display: none; }
+}

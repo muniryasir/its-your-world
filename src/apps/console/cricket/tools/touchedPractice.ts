@@ -13,7 +13,7 @@ const union = new Uint8Array(0x10000);
 const trackers: TrackingRam[] = [];
 const snap = (k: string) => Buffer.from(JSON.parse(readFileSync(`${dir}/${k}.json`, "utf8")).ram, "base64");
 const SNAP = { left: snap("LEFT"), right: snap("RIGHT") };
-const start = (b: Settings["batsman"]) => { const t = new TrackingRam(new Uint8Array(SNAP[b])); trackers.push(t); return t; };
+const start = (s: Settings) => { const t = new TrackingRam(new Uint8Array(SNAP[s.batsman])); trackers.push(t); return t; };
 
 let rnd = 12345;
 const rand = (n: number) => { rnd = (rnd * 1103515245 + 12345) & 0x7fffffff; return rnd % n; };

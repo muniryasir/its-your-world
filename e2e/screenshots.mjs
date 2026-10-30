@@ -126,6 +126,19 @@ await page.waitForTimeout(1500);
 await shot(page, "cricket-field-desktop", false);
 await page.locator(".cc-result").waitFor({ timeout: 40000 });
 await shot(page, "cricket-field-result-desktop", false);
+// bowling practice: the demo bowler aims, stops the meter and fields the ball himself
+await page.goto(BASE + "/console/cricket?cc-mode=bowl&cc-seed=13&cc-demo", { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "Bowl the first ball" }).waitFor({ timeout: 30000 });
+await shot(page, "cricket-bowl-ready-desktop");
+await page.getByRole("button", { name: "Bowl the first ball" }).click();
+await page.getByText("Z stops the meter").waitFor({ timeout: 30000 });
+await page.waitForTimeout(700);
+await shot(page, "cricket-bowl-meter-desktop", false);
+await page.getByText("Arrows: run to the ball").waitFor({ timeout: 90000 });
+await page.waitForTimeout(400);
+await shot(page, "cricket-bowl-field-desktop", false);
+await page.locator(".cc-result").waitFor({ timeout: 40000 });
+await shot(page, "cricket-bowl-result-desktop", false);
 
 // New user: empty world, catalog, app gate
 page = await newPage();

@@ -1,8 +1,10 @@
-// Batting practice: the canvas, the scoreboard, the bowling-machine settings and the controls.
+// Practice in the nets: the canvas, the scoreboard, the settings and the controls. Two modes: bat
+// against the bowling machine, or bowl to the computer batsman (and field).
 // No Wasp imports here, so the game can also be mounted on its own (tools/harness).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Practice, PAD, DEFAULT_SETTINGS, BOUNDARY, oversText } from "./engine/practice";
-import type { Settings, BallResult, Score, BowlerKind } from "./engine/practice";
+import type { Settings, BallResult, Score, BowlerKind, Mode } from "./engine/practice";
+import { ROM } from "./engine/mem";
 import { drawScene, fieldMapPath, SCREEN_W, SCREEN_H } from "./render";
 
 /** the original runs one game tick per 50 Hz (PAL) frame, except while the ball is live in the batting
@@ -18,7 +20,7 @@ const SETUP_PHASES = new Set(["preaim", "aim", "settle", "swing", "meterWait", "
 
 const KEYS: Record<string, number> = {
   ArrowUp: PAD.U, ArrowDown: PAD.D, ArrowLeft: PAD.L, ArrowRight: PAD.R,
-  KeyZ: PAD.A, KeyX: PAD.B,
+  KeyZ: PAD.A, KeyX: PAD.B, KeyC: PAD.C,
 };
 
 interface Hud {
@@ -30,12 +32,36 @@ interface Hud {
   started: boolean;
 }
 
-/** `?cc-seed=N` fixes the random sequence and `?cc-demo` plays the shots itself (for screenshots) */
-function urlOptions(): { seed?: number; demo: boolean } {
+/** `?cc-seed=N` fixes the random sequence, `?cc-mode=bowl` starts in the bowling mode and `?cc-demo`
+ *  plays by itself (for screenshots) */
+function urlOptions(): { seed?: number; demo: boolean; mode?: Mode } {
   if (typeof location === "undefined") return { demo: false };
   const q = new URLSearchParams(location.search);
   const s = q.get("cc-seed");
-  return { seed: s ? Number(s) : undefined, demo: q.has("cc-demo") };
+  const mode = q.get("cc-mode");
+  return { seed: s ? Number(s) : undefined, demo: q.has("cc-demo"), mode: mode === "bowl" || mode === "bat" ? mode : undefined };
+}
+
+/** the demo bowler and fielder: taps A through the aim, swing and meters and during the run-up; in the
+ *  field, runs the chaser towards the ball and throws it to the keeper's end */
+function demoBowlPad(g: Practice, state: { shot: number; t: number }): number {
+  state.t++;
+  if (g.phase === "bowling") return state.t % 24 < 2 ? PAD.A : 0;
+  if (g.phase !== "field") return 0;
+  const m = g.m;
+  if (m.rw(0x8602) === 0) return 0; // the computer fields
+  const a0 = m.rl(0xc730) & 0xffff;
+  if (m.rw(0xe5a2) === 0) return state.t % 8 < 2 ? PAD.A : 0; // he has it: throw to the keeper
+  const dx = m.rw(0xe5b4) - m.rw(a0 + 0x3c), dy = m.rw(0xe5bc) - m.rw(a0 + 0x44);
+  // the pad direction whose running angle (table $36A58; 2048 per turn, 0 = +x) is nearest the ball
+  const want = (Math.round((Math.atan2(dy, dx) / (2 * Math.PI)) * 2048) + 2048) & 0x7ff;
+  let best = 0, bestD = 1e9;
+  for (const d of [PAD.U, PAD.D, PAD.L, PAD.R, PAD.U | PAD.L, PAD.U | PAD.R, PAD.D | PAD.L, PAD.D | PAD.R]) {
+    const a = ROM.rw(0x36a58 + 2 * d) & 0x7ff;
+    const diff = Math.min((a - want) & 0x7ff, (want - a) & 0x7ff);
+    if (diff < bestD) { best = d; bestD = diff; }
+  }
+  return best;
 }
 
 /** the demo batsman: one drive along the ground as the ball arrives */
@@ -51,7 +77,7 @@ export function Nets({ seed }: { seed?: number }) {
   const heldRef = useRef(0); // keyboard and touch buttons down now
   const pressedRef = useRef(0); // went down since the last tick
   const pendingSettings = useRef<Settings>(DEFAULT_SETTINGS);
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<Settings>(() => ({ ...DEFAULT_SETTINGS, mode: urlOptions().mode ?? "bat" }));
   const [paused, setPaused] = useState(false);
   const [autoNext, setAutoNext] = useState(true);
   const [hud, setHud] = useState<Hud>({ score: emptyScore(), result: null, over: [], phase: "result", path: [], started: false });
@@ -64,7 +90,13 @@ export function Nets({ seed }: { seed?: number }) {
 
   const opts = useRef(urlOptions()).current;
   const demoRef = useRef({ shot: -1, t: 0 });
-  if (!gameRef.current) gameRef.current = new Practice(seed ?? opts.seed ?? (Date.now() & 0xffff), DEFAULT_SETTINGS);
+  const initial = useRef<Settings>({ ...DEFAULT_SETTINGS, mode: opts.mode ?? "bat" }).current;
+  if (!gameRef.current) {
+    gameRef.current = new Practice(seed ?? opts.seed ?? (Date.now() & 0xffff), initial);
+    pendingSettings.current = initial;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (opts.demo && typeof window !== "undefined") (window as any).__ccGame = () => gameRef.current; // for the screenshot scripts
 
   const bowl = useCallback(() => {
     const g = gameRef.current!;
@@ -127,9 +159,10 @@ export function Nets({ seed }: { seed?: number }) {
           acc -= step;
           const before = g.phase;
           // the machine's set-up runs SETUP_SPEED ticks per frame; the run-up and the ball run in real time
-          for (let i = 0; i === 0 || (i < SETUP_SPEED && SETUP_PHASES.has(g.engine.phase.kind)); i++) {
+          const fast = !g.bowling; // your own set-up (bowl mode) runs in real time
+          for (let i = 0; i === 0 || (fast && i < SETUP_SPEED && SETUP_PHASES.has(g.engine.phase.kind)); i++) {
             if (opts.demo) {
-              const d = demoPad(g, demoRef.current);
+              const d = g.bowling ? demoBowlPad(g, demoRef.current) : demoPad(g, demoRef.current);
               pressedRef.current |= d & ~heldRef.current;
               heldRef.current = d;
             }
@@ -140,7 +173,7 @@ export function Nets({ seed }: { seed?: number }) {
         }
         if (acc > LIVE_TICK_MS) acc = 0;
       } else acc = 0;
-      const st = g.phase === "field" ? "Z: run · Z again: turn back" : g.phase === "bowling" || g.phase === "live" ? stageLabel(g.engine.phase.kind) : "";
+      const st = g.phase === "field" ? fieldLabel(g) : g.phase === "bowling" || g.phase === "live" ? stageLabel(g.engine.phase.kind, g.settings) : "";
       if (st !== stageRef.current) { stageRef.current = st; setStage(st); }
       if (changed) {
         if (g.result && resultAt.current === 0) {
@@ -166,6 +199,18 @@ export function Nets({ seed }: { seed?: number }) {
     setSettings(next);
     pendingSettings.current = next;
   };
+  /** bat or bowl: a fresh session in the other mode, right away */
+  const switchMode = (mode: Mode) => {
+    if (mode === settings.mode) return;
+    const next = { ...settings, mode };
+    setSettings(next);
+    pendingSettings.current = next;
+    gameRef.current = new Practice(seed ?? opts.seed ?? (Date.now() & 0xffff), next);
+    overRef.current = [];
+    resultAt.current = 0;
+    setHud({ score: emptyScore(), result: null, over: [], phase: "result", path: [], started: false });
+  };
+  const bowlMode = settings.mode === "bowl";
 
   const { score, result } = hud;
   const g = gameRef.current;
@@ -174,6 +219,14 @@ export function Nets({ seed }: { seed?: number }) {
   return (
     <div className="cc-nets">
       <div className="cc-stage">
+        <div className="cc-modes" role="tablist" aria-label="Practice mode">
+          {(["bat", "bowl"] as Mode[]).map((md) => (
+            <button key={md} role="tab" aria-selected={settings.mode === md} className={`cc-mode${settings.mode === md ? " on" : ""}`} onClick={() => switchMode(md)}>
+              {md === "bat" ? "Bat" : "Bowl"}
+              <span>{md === "bat" ? "against the bowling machine" : "to the computer batsman"}</span>
+            </button>
+          ))}
+        </div>
         <div className="cc-board" aria-live="polite">
           <div className="cc-total">
             <span className="cc-runs">{score.runs}/{score.wickets}</span>
@@ -198,14 +251,25 @@ export function Nets({ seed }: { seed?: number }) {
             width={SCREEN_W * SCALE}
             height={SCREEN_H * SCALE}
             className="cc-canvas"
-            aria-label="Batting view: the bowling machine bowls to you from the far end"
+            aria-label={bowlMode ? "Bowling view: you bowl to the computer batsman at the far end" : "Batting view: the bowling machine bowls to you from the far end"}
           />
           {!hud.started && (
             <div className="cc-overlay">
-              <p className="cc-overlay-title">Batting practice</p>
-              <p className="cc-overlay-text">The bowling machine bowls the way the original game's computer bowler does. Pick a direction and play your shot as the ball arrives.</p>
-              <button className="cc-btn cc-btn--primary" onClick={bowl}>Face the first ball</button>
-              <p className="cc-overlay-hint"><kbd>Space</kbd> bowls the next ball</p>
+              {bowlMode ? (
+                <>
+                  <p className="cc-overlay-title">Bowling practice</p>
+                  <p className="cc-overlay-text">Bowl to the original game's computer batsman: aim with the arrows, <kbd>Z</kbd> to fix it and stop the meter, tap <kbd>Z</kbd> as you run in. Then field it.</p>
+                  <button className="cc-btn cc-btn--primary" onClick={bowl}>Bowl the first ball</button>
+                  <p className="cc-overlay-hint"><kbd>Space</kbd> starts the next ball</p>
+                </>
+              ) : (
+                <>
+                  <p className="cc-overlay-title">Batting practice</p>
+                  <p className="cc-overlay-text">The bowling machine bowls the way the original game's computer bowler does. Pick a direction and play your shot as the ball arrives.</p>
+                  <button className="cc-btn cc-btn--primary" onClick={bowl}>Face the first ball</button>
+                  <p className="cc-overlay-hint"><kbd>Space</kbd> bowls the next ball</p>
+                </>
+              )}
             </div>
           )}
           {result && (
@@ -219,12 +283,12 @@ export function Nets({ seed }: { seed?: number }) {
           {paused && <div className="cc-paused">Paused</div>}
         </div>
 
-        <TouchPad press={press} release={release} />
+        <TouchPad press={press} release={release} bowling={bowlMode} />
 
         <div className="cc-actions">
           <button className="cc-btn" onClick={() => setPaused((p) => !p)}>{paused ? "Resume" : "Pause"}</button>
           <label className="cc-check">
-            <input type="checkbox" checked={autoNext} onChange={(e) => setAutoNext(e.target.checked)} /> Bowl the next ball automatically
+            <input type="checkbox" checked={autoNext} onChange={(e) => setAutoNext(e.target.checked)} /> {bowlMode ? "Start the next ball automatically" : "Bowl the next ball automatically"}
           </label>
           <span className="cc-muted">{hud.started ? `${ballsLeft} ball${ballsLeft === 1 ? "" : "s"} left in the over` : ""}</span>
         </div>
@@ -239,14 +303,17 @@ export function Nets({ seed }: { seed?: number }) {
             checked tick by tick against recordings of the original.
           </p>
           <p className="cc-muted">
-            It's the nets: you stay on strike. Bowling to a computer batsman comes next.
+            When you bowl, it's the original's own bowling controls (aim, swing or spin, the meter, run-up
+            pace) and its computer batsman, who picks his shot against the field the way the original does; then
+            you field the ball yourself or leave it to the computer's fielders. It's the nets: the batsman
+            stays on strike.
           </p>
         </section>
       </div>
 
       <aside className="cc-side">
         <section className="cc-panel">
-          <h2>Bowling machine</h2>
+          <h2>{bowlMode ? "Your bowler" : "Bowling machine"}</h2>
           <p className="cc-muted">Changes apply from the next ball.</p>
           <fieldset className="cc-seg">
             <legend>Bowler</legend>
@@ -267,7 +334,7 @@ export function Nets({ seed }: { seed?: number }) {
             ))}
           </fieldset>
           <label className="cc-range">
-            <span>Accuracy <b>{settings.accuracy}</b></span>
+            <span>{bowlMode ? "Rating (aim speed)" : "Accuracy"} <b>{settings.accuracy}</b></span>
             <input type="range" min={0} max={99} value={settings.accuracy} onChange={(e) => change({ accuracy: Number(e.target.value) })} />
           </label>
           <fieldset className="cc-seg">
@@ -279,7 +346,12 @@ export function Nets({ seed }: { seed?: number }) {
               </label>
             ))}
           </fieldset>
-          <fieldset className="cc-seg">
+          {bowlMode && (
+            <label className="cc-check cc-check--panel">
+              <input type="checkbox" checked={settings.humanField} onChange={(e) => change({ humanField: e.target.checked })} /> Field the ball yourself
+            </label>
+          )}
+          {!bowlMode && <fieldset className="cc-seg">
             <legend>You bat</legend>
             {(["left", "right"] as const).map((h) => (
               <label key={h} className={settings.batsman === h ? "on" : ""}>
@@ -287,11 +359,24 @@ export function Nets({ seed }: { seed?: number }) {
                 {h === "left" ? "Left-handed" : "Right-handed"}
               </label>
             ))}
-          </fieldset>
+          </fieldset>}
         </section>
 
         <section className="cc-panel">
           <h2>Controls</h2>
+          {bowlMode ? (
+          <dl className="cc-keys">
+            <div><dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Move the aim marker (line and length)</dd></div>
+            <div><dt><kbd>Z</kbd></dt><dd>Fix the marker; then stop the meter</dd></div>
+            <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Swing or spin bowlers: which way it moves (then <kbd>Z</kbd>)</dd></div>
+            <div><dt><kbd>Z</kbd> <kbd>Z</kbd> <kbd>Z</kbd></dt><dd>Tap during the run-up for pace</dd></div>
+            <div><dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Fielding yourself: run (diagonals too); he catches and picks up by himself</dd></div>
+            <div><dt><kbd>Z</kbd> / <kbd>X</kbd></dt><dd>With the ball: throw to the keeper's end / the bowler's end</dd></div>
+            <div><dt><kbd>C</kbd></dt><dd>Before anyone has the ball: switch fielder</dd></div>
+            <div><dt><kbd>Space</kbd></dt><dd>Next ball</dd></div>
+            <div><dt><kbd>P</kbd></dt><dd>Pause</dd></div>
+          </dl>
+          ) : (
           <dl className="cc-keys">
             <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Move across the crease before the ball is bowled</dd></div>
             <div><dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Shot direction (diagonals too): up drives, down plays back, sideways cuts and pulls</dd></div>
@@ -301,18 +386,36 @@ export function Nets({ seed }: { seed?: number }) {
             <div><dt><kbd>Space</kbd></dt><dd>Next ball</dd></div>
             <div><dt><kbd>P</kbd></dt><dd>Pause</dd></div>
           </dl>
+          )}
         </section>
       </aside>
     </div>
   );
 }
 
-function stageLabel(kind: string): string {
+function stageLabel(kind: string, s: Settings): string {
+  if (s.mode === "bowl") {
+    if (kind === "preaim") return "Get ready";
+    if (kind === "aim") return "Aim: arrows move the marker · Z fixes it";
+    if (kind === "settle") return "Marker set";
+    if (kind === "swing") return s.bowler === "spin" ? "Spin: ← or → · Z to go on" : "Swing: ← in · → out · Z to go on";
+    if (kind.startsWith("meter") || kind === "meterWait") return "Z stops the meter";
+    if (kind === "paceWait" || kind === "runup") return "Running in: tap Z for pace";
+    return "";
+  }
   if (kind === "preaim" || kind === "aim" || kind === "settle") return "The machine picks its line and length";
   if (kind === "swing") return "Setting swing or spin";
   if (kind.startsWith("meter") || kind === "paceWait") return "Setting the pace";
   if (kind === "runup") return "Running in";
   return "";
+}
+
+function fieldLabel(g: Practice): string {
+  if (!g.bowling) return "Z: run · Z again: turn back";
+  const m = g.m;
+  if (m.rw(0x8602) === 0) return g.settings.humanField ? "The fielders take it from here" : "The fielders chase it down";
+  if (m.rb(0xfd0e) !== 0) return "Throw: Z to the keeper · X to the bowler";
+  return "Arrows: run to the ball · C: switch fielder";
 }
 
 function emptyScore(): Score {
@@ -343,7 +446,7 @@ function FieldMap({ path }: { path: [number, number][] }) {
 }
 
 /** on-screen pad for touch screens */
-function TouchPad({ press, release }: { press: (b: number) => void; release: (b: number) => void }) {
+function TouchPad({ press, release, bowling }: { press: (b: number) => void; release: (b: number) => void; bowling: boolean }) {
   const btn = (label: string, bits: number, cls = "") => (
     <button
       key={label}
@@ -365,8 +468,9 @@ function TouchPad({ press, release }: { press: (b: number) => void; release: (b:
         {btn("↙", PAD.D | PAD.L)}{btn("↓", PAD.D)}{btn("↘", PAD.D | PAD.R)}
       </div>
       <div className="cc-shotbtns">
-        <button className="cc-pad-btn cc-pad-btn--wide" onPointerDown={(e) => { e.preventDefault(); press(PAD.A); }} onPointerUp={() => release(PAD.A)} onPointerCancel={() => release(PAD.A)}>Ground</button>
-        <button className="cc-pad-btn cc-pad-btn--wide" onPointerDown={(e) => { e.preventDefault(); press(PAD.B); }} onPointerUp={() => release(PAD.B)} onPointerCancel={() => release(PAD.B)}>Loft</button>
+        {([[PAD.A, bowling ? "A" : "Ground"], [PAD.B, bowling ? "B" : "Loft"], ...(bowling ? [[PAD.C, "C"]] : [])] as [number, string][]).map(([bits, label]) => (
+          <button key={label} className="cc-pad-btn cc-pad-btn--wide" onPointerDown={(e) => { e.preventDefault(); press(bits); }} onPointerUp={() => release(bits)} onPointerCancel={() => release(bits)}>{label}</button>
+        ))}
       </div>
     </div>
   );
