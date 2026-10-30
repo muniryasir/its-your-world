@@ -1156,13 +1156,17 @@ function dropped(m: Ram, a0: number): void {
   toGather(m, a0);
 }
 
-/** state 5 (loc_037552): dive */
+/**
+ * States 5 (loc_037552, dive) and 7 (loc_037FE4, jump) are dead code in the original: the only routines
+ * that set them, the dive trigger at $03737C (-> $0373E0 -> $037536) and the jump trigger at $037F3E
+ * (-> $037FA4), are never called. No bsr/jsr/jmp, PC-relative lea/pea or absolute pointer anywhere in
+ * the ROM refers to either entry, so no fielder can reach these states. Not ported for that reason.
+ */
 function diving(_m: Ram, _a0: number): void {
-  throw new Error("fielding: dive (state 5) not ported yet");
+  throw new Error("fielding: state 5 (dive) is unreachable in the original");
 }
-/** state 7 (loc_037FE4): jump */
 function jumping(_m: Ram, _a0: number): void {
-  throw new Error("fielding: jump (state 7) not ported yet");
+  throw new Error("fielding: state 7 (jump) is unreachable in the original");
 }
 
 /** states 12 / 13 (loc_0377A8 / loc_037940): the men at the stumps (12 near end $C6FC, 13 far end) */
