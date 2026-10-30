@@ -1,6 +1,7 @@
 // Draws the batting view on a canvas from the engine state. Positions come from the original's own
-// projection and sprite placement; the look is our own: players are drawn as flat silhouettes cut from
-// the original's collision masks, on a night-time ground.
+// projection and sprite placement. With the original art loaded (art.ts) it draws the original's
+// background, sprites, umpire and gauge needles; until then (or if it fails to load) players are drawn
+// as flat silhouettes cut from the original's collision masks, on a night-time ground.
 
 import type { Ram } from "./engine/mem";
 import { projectFloat } from "./engine/project";
@@ -8,6 +9,9 @@ import { getMask } from "./engine/collide";
 import type { View, Sprite, FieldScene } from "./engine/practice";
 import { BOUNDARY } from "./engine/practice";
 import { fieldScreen, outside } from "./engine/fieldlib";
+import { getArt } from "./art";
+import type { Art } from "./art";
+import { ATLAS, STATIC_AT, GAUGES } from "./art/atlas";
 
 export const SCREEN_W = 320;
 export const SCREEN_H = 224;
@@ -54,6 +58,8 @@ const STARS = Array.from({ length: 70 }, (_, i) => {
 /** draw one frame. `scale` = canvas pixels per original screen pixel */
 export function drawScene(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: number, time: number): void {
   if (view.field) return drawField(ctx, m, view.field, scale);
+  const art = getArt();
+  if (art) return drawOriginal(ctx, m, view, scale, art);
   ctx.save();
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.imageSmoothingEnabled = false;
@@ -184,7 +190,68 @@ export function drawScene(ctx: CanvasRenderingContext2D, m: Ram, view: View, sca
     });
   items.sort((a, b) => b.depth - a.depth).forEach((it) => it.draw());
 
-  if (view.meters) drawMeters(ctx, view.meters);
+  if (view.meters && view.mode === "bowl") drawMeters(ctx, view.meters); // (with the art: the original's gauges)
+  ctx.restore();
+}
+
+/** the batting view with the original art: background, sprites from the atlas (the team palettes of the
+ *  match being played), the umpire layer, the gauge needles */
+function drawOriginal(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: number, art: Art): void {
+  ctx.save();
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(art.bg, 0, 0);
+  if (view.marker) {
+    ctx.beginPath();
+    view.marker.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  }
+  const ball = view.ball;
+  if (ball) {
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.beginPath();
+    ctx.ellipse(ball.hx, ball.hy, ball.r * 1.1, ball.r * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const sheet = view.mode === "bowl" ? art.sprites.bowl : art.sprites.bat;
+  const sprite = (frame: number, x: number, y: number) => {
+    const r = ATLAS[Math.abs(frame)];
+    if (!r) return;
+    const [sx, sy, w, h] = r;
+    if (frame < 0) {
+      ctx.save(); ctx.translate(x + w, y); ctx.scale(-1, 1);
+      ctx.drawImage(sheet, sx, sy, w, h, 0, 0, w, h);
+      ctx.restore();
+    } else ctx.drawImage(sheet, sx, sy, w, h, x, y, w, h);
+  };
+  const items: { depth: number; draw: () => void }[] = view.sprites.map((s) => ({ depth: s.depth, draw: () => sprite(s.frame, s.x, s.y) }));
+  // the umpire and the bowler's-end stumps stand just behind the bowler's crease
+  items.push({ depth: -0x440, draw: () => ctx.drawImage(art.staticLayer, STATIC_AT[0], STATIC_AT[1]) });
+  if (ball)
+    items.push({
+      depth: ball.depth - 1,
+      draw: () => {
+        ctx.fillStyle = "#c8102e";
+        ctx.beginPath(); ctx.arc(ball.sx, ball.sy, ball.r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.fillRect(ball.sx - ball.r * 0.45, ball.sy - ball.r * 0.45, Math.max(0.6, ball.r * 0.4), Math.max(0.6, ball.r * 0.4));
+      },
+    });
+  items.sort((a, b) => b.depth - a.depth).forEach((it) => it.draw());
+  ctx.drawImage(art.fg, 0, 0); // high-priority background tiles (the gauges) cover low-priority sprites
+  // the gauge needles (the original's high-priority sprites at the gauges)
+  const g = view.gauges;
+  if (g) {
+    const py = Math.round(GAUGES.power.y + (g.needle * GAUGES.power.swing) / 32768);
+    const sy = Math.round(GAUGES.speed.y - Math.max(0, Math.min(0x7f, g.pace)) / 4);
+    ctx.drawImage(art.needles, 0, 0, 8, 16, GAUGES.power.x, py, 8, 16);
+    ctx.drawImage(art.needles, 9, 0, 8, 16, GAUGES.speed.x, sy, 8, 16);
+  }
   ctx.restore();
 }
 

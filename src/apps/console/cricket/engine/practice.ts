@@ -232,10 +232,8 @@ export class Practice {
   // ---------------------------------------------------------------- what to draw
 
   view(): View {
-    if (this.field) return { phase: "field", ...fieldScene(this.m) };
-    const v: View = { phase: this.phase, ...scene(this.m, this.engine.phase.kind, !this.result) };
-    if (!this.bowling) delete v.meters; // the machine's meters aren't shown (as in the original)
-    return v;
+    if (this.field) return { phase: "field", mode: this.settings.mode, ...fieldScene(this.m) };
+    return { phase: this.phase, mode: this.settings.mode, ...scene(this.m, this.engine.phase.kind, !this.result) };
   }
 
   /** world point (x, height, y) to screen, through the original's camera */
@@ -257,6 +255,8 @@ export interface FieldScene {
 }
 export interface View {
   phase: "bowling" | "live" | "field" | "result";
+  /** bat: the machine bowls (its meters move the gauges); bowl: you do */
+  mode: Mode;
   enginePhase: string;
   /** far to near */
   sprites: Sprite[];
@@ -264,12 +264,14 @@ export interface View {
   marker?: [number, number][];
   /** your bowling meters: power (what the needle gives the release, 0..1), pace from the run-up taps
    *  (0..1), swing/spin direction (-1 in, 1 out, 0 = fast bowler), which stage is live */
-  meters?: { power: number; pace: number; swing: number; stage: "swing" | "meter" | "runup" };
+  meters?: { power: number; pace: number; swing: number; stage: "swing" | "meter" | "runup"; needle: number };
   field?: FieldScene;
+  /** batting view: the power needle (sine of the needle angle, ±32767) and the run-up pace */
+  gauges?: { needle: number; pace: number };
 }
 
 /** the fielding view: fielders (records at $B522), the two batsmen running ($C800, $C81E) and the ball */
-export function fieldScene(m: Ram): Omit<View, "phase"> {
+export function fieldScene(m: Ram): Omit<View, "phase" | "mode"> {
   const players: FieldScene["players"] = [];
   const base = m.rl(0xb522) & 0xffff;
   const holder = m.rl(0xc730) & 0xffff;
@@ -298,7 +300,7 @@ export function fieldScene(m: Ram): Omit<View, "phase"> {
 }
 
 /** the batting view for the current RAM: sprites as the original places them, ball, aim marker, meters */
-export function scene(m: Ram, ph: string, showBall = true): Omit<View, "phase"> {
+export function scene(m: Ram, ph: string, showBall = true): Omit<View, "phase" | "mode"> {
   const sprites: Sprite[] = [];
   // the bowler: sub_044530
   {
@@ -341,7 +343,8 @@ export function scene(m: Ram, ph: string, showBall = true): Omit<View, "phase"> 
     ball = { sx, sy, hx, hy, r: Math.max(1, Math.min(8, size / 2)), depth: y };
   }
   sprites.sort((a, b) => a.depth - b.depth);
-  const v: Omit<View, "phase"> = { enginePhase: ph, sprites, ball };
+  // the gauges' needles: the original leaves them where the last delivery put them
+  const v: Omit<View, "phase" | "mode"> = { enginePhase: ph, sprites, ball, gauges: { needle: SIN(m.rw(0xe956)), pace: m.rw(0xe95a) } };
   if (ph === "aim" || ph === "settle") v.marker = markerQuad(m);
   if (ph.startsWith("meter") || ph === "swing" || ph === "paceWait" || ph === "runup") {
     // sub_044480: the release uses 0x80 - |sin(needle)| / 256
@@ -351,6 +354,7 @@ export function scene(m: Ram, ph: string, showBall = true): Omit<View, "phase"> 
       pace: Math.max(0, Math.min(1, m.rw(0xe95a) / 0x7f)),
       swing: m.rw(0xd28e) === 0 ? 0 : m.rw(0xe954) < 0 ? -1 : 1,
       stage: ph === "swing" ? "swing" : ph === "runup" || ph === "paceWait" ? "runup" : "meter",
+      needle: SIN(m.rw(0xe956)), // the power gauge's needle follows the sine of the needle angle
     };
   }
   return v;
