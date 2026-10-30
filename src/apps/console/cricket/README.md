@@ -5,69 +5,98 @@ the game logic is read out of the 68000 machine code and rewritten in TypeScript
 tick against the original running in an emulator. Nothing is emulated in the browser.
 
 Branch `console/cricket` only (merged into `main` when the whole project is done). This branch also
-holds data extracted from the ROM (tables, sprite collision masks, start states) and, from phase 3, the
-original art (decoded sprites and backgrounds; Yasir's decision, 2026-10-29). The ROM itself and the
-disassembly are never committed.
+holds data extracted from the ROM (tables, sprite collision masks, start states) and the original art
+(decoded sprites and backgrounds; Yasir's decision, 2026-10-29). The ROM itself and the disassembly are
+never committed.
 
-## What works (phase 2: batting)
+## What works (phase 3: bowling, fielding, original art)
 
-`/console/cricket` (logged in): batting practice against a bowling machine.
+`/console/cricket` (logged in): practice in the nets, in two modes.
 
-- The machine is the original's computer bowler: how it picks line and length, the swing/spin and pace
-  meters, the run-up, the release, the ball's flight, bounce, swing and spin.
-- The batsman is the original's: footwork, shot choice from the pad, the shot plan, timing, contact
+**Bat**: against a bowling machine, the original's computer bowler.
+- How it picks line and length, the swing/spin and pace meters, the run-up, the release, the ball's
+  flight, bounce, swing and spin.
+- Your batsman is the original's: footwork, shot choice from the pad, the shot plan, timing, contact
   against the bat's outline, edges, where the ball goes off the bat (including the gaps in the field).
-- Bowled, LBW, caught by the keeper or slips, wides, the keeper and slips diving: the original's logic.
+- Bowled, LBW, caught by the keeper or slips, wides, the keeper and slips diving.
+- Once the ball leaves the batting view, the original's fielding view: fielders chase, catch, gather
+  and throw; running between the wickets (`Z` to run, `Z` again to turn back), run outs, boundaries.
 - Settings: bowler type (fast, swing, spin), bowling arm, accuracy, difficulty (the original's three
   levels), left- or right-handed batsman.
 
-Controls: arrows for direction (diagonals too) and footwork, `Z` keeps the shot on the ground, `X`
-lofts it, `Space` bowls the next ball, `P` pauses. Touch screens get an on-screen pad.
+**Bowl**: you bowl to the original's computer batsman.
+- The original's human bowling: move the aim marker with the arrows, `Z` fixes it; swing and spin
+  bowlers pick the way it moves (`←`/`→`, then `Z`); `Z` stops the power meter; tap `Z` in the run-up
+  for pace. `C` is never passed on while you bowl (in the original it opens the in-game menu).
+- The computer batsman: shot choice from 11 options scored against the field, lofting, footwork, when
+  to run.
+- Fielding: yourself (the original's human-fielding option, its default): steer the chaser, he catches
+  and gathers by himself, `Z`/`X` throw to the keeper's / bowler's end, `C` switches fielder before
+  anyone has the ball; the computer takes over when you're idle and after your throw. Or leave it all
+  to the computer's fielders.
+- Settings: bowler type, arm, rating (it sets how fast your aim marker moves), difficulty, field yourself.
+
+It's the nets: the striker stays on strike. Full match rules are phase 4.
+
+**Look**: the batting view uses the original art: the background (stand, grass, pitch, the Power and
+Speed gauges, whose needles follow the meters), every player sprite in the team colours of the match,
+the umpire. The fielding view (from above) is still our own drawing (dots for players, the original's
+target marker, an arrow towards an off-screen ball).
 
 ## Layout
 
 | Path | What |
 |---|---|
 | `engine/` | The rebuilt game logic. Plain TypeScript, deterministic, integer maths that reproduces the 68000's (`m68k.ts`). State lives in a 64 KB `Ram` with the original's own addresses, so every routine can be compared with the original's memory. Each function names the original routine it rebuilds (`sub_04486A` = code at ROM address $4486A). |
-| `engine/engine.ts` | One delivery: the original's loops (aim, meters, run-up, ball live) and the order of the work in each game tick. |
-| `engine/practice.ts` | The game layer for practice: settings, score, results, and what to draw. |
-| `engine/romData.ts`, `maskData.ts`, `baseState.ts` | Generated from the ROM / emulator by the analysis tools (outside this repo). Don't edit. |
-| `render.ts`, `Nets.tsx`, `CricketPage.tsx`, `cricket.css` | The page. Positions come from the original's projection and sprite placement; players are drawn as flat silhouettes cut from the collision masks (our own look, not the original art). |
-| `traces/` | 89 recorded deliveries from the original (start state, pad input per tick, every value the engine models after every tick). |
-| `tools/check.ts` | The fidelity check: runs the engine on every trace and compares. |
+| `engine/engine.ts` | One delivery: the original's loops (aim, meters, run-up, ball live, hand-over) and the order of the work in each game tick. |
+| `engine/fielding.ts`, `fieldlib.ts` | The fielding view: fielders' states, catches, throws, running, run outs, boundaries, human fielding. |
+| `engine/aiBatsman.ts` | The computer batsman's shot choice and running. |
+| `engine/practice.ts` | The game layer for practice: modes, settings, score, results, and what to draw. |
+| `engine/romData.ts`, `maskData.ts`, `baseState.ts`, `baseBowl.ts` | Generated from the ROM / emulator by the analysis tools (outside this repo) and `tools/genBowlBase.ts`. Don't edit. |
+| `art/` | The original art, generated by the analysis tools: `batting-bg-*.png` / `batting-fg-*.png` (background and its high-priority gauge tiles, per match palette), `sprites-bat.png` / `sprites-bowl.png` (all sprite frames the page draws, per team palettes), `static.png` (umpire and bowler's-end stumps), `needles.png`, `atlas.ts`. |
+| `render.ts`, `art.ts`, `Nets.tsx`, `CricketPage.tsx`, `cricket.css` | The page. Positions come from the original's projection and sprite placement. Until the art has loaded, players are drawn as silhouettes cut from the collision masks. |
+| `traces/` | Recorded deliveries from the original (`*.json.gz`; `bowl_*` = you bowl), fielding views (`traces/field`) and hand-overs to the fielding view (`traces/hand`). |
+| `tools/` | The fidelity checks and the trace/start-state tools (below). |
 
-## Fidelity check
+## Fidelity checks
 
 ```
-npx tsx src/apps/console/cricket/tools/check.ts            # all traces
-npx tsx src/apps/console/cricket/tools/check.ts traces/UA@104.json.gz
+npx tsx src/apps/console/cricket/tools/check.ts        # deliveries (batting view), all traces
+npx tsx src/apps/console/cricket/tools/checkField.ts   # fielding views
+npx tsx src/apps/console/cricket/tools/checkHand.ts    # hand-overs from the batting to the fielding view
 ```
 
-Current result: 88 of 89 traces match on every compared value for the whole delivery (16,634 ticks),
-covering no-shot deliveries, every shot direction with both shot buttons at several timings, footwork,
-random play, both batsmen, several deliveries in a row and later overs. The one known difference is
-listed below.
+Current result: **189/189** deliveries (57,045 ticks), **282/282** fielding views (108,513 steps),
+**178/178** hand-overs, every compared value equal. Covered: every shot direction with both shot buttons
+at several timings, footwork, random batting, both batsmen, several deliveries in a row, later overs;
+human bowling with all bowler types and both arms against the computer batsman; computer and human
+fielding (including switching fielder and throwing to either end).
 
-## Known differences
+Other tools: `trimField.ts` / `trimHand.ts` (cut new traces down to the RAM they need),
+`touchedPractice.ts` (RAM a batting session reads), `genBowlBase.ts` (the bowling start state: plays
+many random balls on the recorded full RAM and keeps only what is read; the trimmed state plays exactly
+like the full one).
 
-- **Trace `start_s0_d4`.** In one routine (`sub_048202`, close fielders steering) the original divides by
-  a register whose upper half is left over from earlier code. The engine can't reproduce that garbage;
-  the result differs by one unit in one rare case.
-- **A stale pointer in the original.** `sub_0471D8` calls `sub_048202` without setting the register it
-  reads the "hand frame" from, so it reads the main task's stack frame (the word at `$FFFF8D96`). That
-  word is `$160` throughout the delivery loops, so the engine uses that constant.
-- **Things the checker skips**: VBlank counters and the pad words (the emulator samples the pad a frame
+## Known differences and modelled quirks
+
+- **Register leaks.** Two routines divide by a register the original never sets there: the batting
+  view's `sub_048202` (upper half of `d6`, left by the release, the stumps or a dive: `Ram.d6hi`) and
+  the fielding view's `sub_037BB6` (all of `d6`, left by the camera or the runners' sprites: `Ram.fd6`).
+  Both are modelled, which fixed phase 2's only known difference.
+- **A stale pointer.** `sub_0471D8` calls `sub_048202` without setting the register it reads the "hand
+  frame" from, so it reads the word at `$FFFF8D96`; that word is `$160` throughout, so the engine uses
+  that constant.
+- **Dead code.** The fielding view's dive (state 5) and jump (state 7) can't be reached in the original:
+  nothing calls the routines that set them. They throw if ever reached.
+- **Things the checkers skip**: VBlank counters and the pad words (the emulator samples the pad a frame
   later than the game tick reads it).
 
-## Phase-2 placeholders (replaced in later phases)
+## Practice simplifications (not the original's rules)
 
-- **After the ball leaves the batting view** the original cuts to the fielding view (phase 3). Until then
-  the page follows the ball with the original's ball physics and scores it: it reaches the rope (6,400
-  units from the middle, about the original's straight boundaries) for four, or six on the full;
-  otherwise 0–3 runs by how far from the striker's crease it stopped. No outfielders, no run-outs.
+- The striker stays on strike, the over count is only for the scoreboard, and the players' records are
+  the recorded matches' (England's openers when you bat, Australia's when you bowl). Phase 4 brings the
+  match rules.
 - **The machine's set-up** (choosing its line, the meters) runs four ticks per frame, so balls come
-  quicker. Same logic, less waiting.
-- **The look** is ours (silhouettes, night ground, our pitch and creases drawn through the original's
-  projection). The original art comes in phase 3.
-- Balls faced feed the original's misjudge rolls; the rest of the batsman's and bowler's records are the
-  recorded match's (England's openers, first over).
+  quicker. Same logic, less waiting. Your own set-up runs in real time.
+- Not drawn yet: the non-striker and the original's on-screen texts (our scoreboard instead); the
+  fielding view's original art.
