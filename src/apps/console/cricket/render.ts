@@ -200,7 +200,7 @@ function drawOriginal(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: 
   ctx.save();
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(art.bg, 0, 0);
+  ctx.drawImage(art.bg[view.mode], 0, 0);
   if (view.marker) {
     ctx.beginPath();
     view.marker.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
@@ -243,7 +243,7 @@ function drawOriginal(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: 
       },
     });
   items.sort((a, b) => b.depth - a.depth).forEach((it) => it.draw());
-  ctx.drawImage(art.fg, 0, 0); // high-priority background tiles (the gauges) cover low-priority sprites
+  ctx.drawImage(art.fg[view.mode], 0, 0); // high-priority background tiles (the gauges) cover low-priority sprites
   // the gauge needles (the original's high-priority sprites at the gauges)
   const g = view.gauges;
   if (g) {

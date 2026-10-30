@@ -1,17 +1,20 @@
 // The original game's art for the page (console/cricket branch only): images decoded from the ROM and
 // the original's video memory by analysis/tools/p3/gen_art.py (see art/atlas.ts). Loaded once; until the
 // images are ready the renderer falls back to silhouettes cut from the collision masks.
-import batsBg from "./art/batting-bg.png";
-import batsFg from "./art/batting-fg.png";
+import bgBat from "./art/batting-bg-bat.png";
+import bgBowl from "./art/batting-bg-bowl.png";
+import fgBat from "./art/batting-fg-bat.png";
+import fgBowl from "./art/batting-fg-bowl.png";
 import spritesBat from "./art/sprites-bat.png";
 import spritesBowl from "./art/sprites-bowl.png";
 import staticLayer from "./art/static.png";
 import needles from "./art/needles.png";
 
 export interface Art {
-  bg: HTMLImageElement;
+  /** the batting view's background in each match's colours (bat: England bat; bowl: Australia bat) */
+  bg: { bat: HTMLImageElement; bowl: HTMLImageElement };
   /** the background's high-priority tiles (the gauges): over the sprites */
-  fg: HTMLImageElement;
+  fg: { bat: HTMLImageElement; bowl: HTMLImageElement };
   /** sprite atlases coloured with the batting match's palettes (England bat) / the bowling match's (Australia bat) */
   sprites: { bat: HTMLImageElement; bowl: HTMLImageElement };
   staticLayer: HTMLImageElement;
@@ -31,8 +34,10 @@ export function getArt(): Art | null {
     im.onerror = fail;
     im.src = src;
   });
-  Promise.all([batsBg, batsFg, spritesBat, spritesBowl, staticLayer, needles].map(load))
-    .then(([bg, fg, bat, bowl, st, nd]) => { art = { bg, fg, sprites: { bat, bowl }, staticLayer: st, needles: nd }; })
+  Promise.all([bgBat, bgBowl, fgBat, fgBowl, spritesBat, spritesBowl, staticLayer, needles].map(load))
+    .then(([bga, bgb, fga, fgb, bat, bowl, st, nd]) => {
+      art = { bg: { bat: bga, bowl: bgb }, fg: { bat: fga, bowl: fgb }, sprites: { bat, bowl }, staticLayer: st, needles: nd };
+    })
     .catch(() => { /* stay on the silhouettes */ });
   return null;
 }
