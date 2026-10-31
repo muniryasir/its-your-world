@@ -9,6 +9,11 @@ import spritesBat from "./art/sprites-bat.png";
 import spritesBowl from "./art/sprites-bowl.png";
 import staticLayer from "./art/static.png";
 import needles from "./art/needles.png";
+import groundBat from "./art/field-ground-bat.png";
+import groundBowl from "./art/field-ground-bowl.png";
+import fieldBat from "./art/field-sprites-bat.png";
+import fieldBowl from "./art/field-sprites-bowl.png";
+import overlay from "./art/field-overlay.png";
 
 export interface Art {
   /** the batting view's background in each match's colours (bat: England bat; bowl: Australia bat) */
@@ -19,6 +24,12 @@ export interface Art {
   sprites: { bat: HTMLImageElement; bowl: HTMLImageElement };
   staticLayer: HTMLImageElement;
   needles: HTMLImageElement;
+  /** the fielding view: the whole ground in each match's colours, its sprites, the pitch overlay */
+  field: {
+    ground: { bat: HTMLImageElement; bowl: HTMLImageElement };
+    sprites: { bat: HTMLImageElement; bowl: HTMLImageElement };
+    overlay: HTMLImageElement;
+  };
 }
 
 let art: Art | null = null;
@@ -34,9 +45,12 @@ export function getArt(): Art | null {
     im.onerror = fail;
     im.src = src;
   });
-  Promise.all([bgBat, bgBowl, fgBat, fgBowl, spritesBat, spritesBowl, staticLayer, needles].map(load))
-    .then(([bga, bgb, fga, fgb, bat, bowl, st, nd]) => {
-      art = { bg: { bat: bga, bowl: bgb }, fg: { bat: fga, bowl: fgb }, sprites: { bat, bowl }, staticLayer: st, needles: nd };
+  Promise.all([bgBat, bgBowl, fgBat, fgBowl, spritesBat, spritesBowl, staticLayer, needles, groundBat, groundBowl, fieldBat, fieldBowl, overlay].map(load))
+    .then(([bga, bgb, fga, fgb, bat, bowl, st, nd, gba, gbo, fba, fbo, ov]) => {
+      art = {
+        bg: { bat: bga, bowl: bgb }, fg: { bat: fga, bowl: fgb }, sprites: { bat, bowl }, staticLayer: st, needles: nd,
+        field: { ground: { bat: gba, bowl: gbo }, sprites: { bat: fba, bowl: fbo }, overlay: ov },
+      };
     })
     .catch(() => { /* stay on the silhouettes */ });
   return null;

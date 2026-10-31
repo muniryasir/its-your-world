@@ -11,7 +11,8 @@ import { BOUNDARY } from "./engine/practice";
 import { fieldScreen, outside } from "./engine/fieldlib";
 import { getArt } from "./art";
 import type { Art } from "./art";
-import { ATLAS, STATIC_AT, GAUGES } from "./art/atlas";
+import { ATLAS, STATIC_AT, GAUGES, FIELD_ATLAS, OVERLAY_AT } from "./art/atlas";
+import type { Mode } from "./engine/practice";
 
 export const SCREEN_W = 320;
 export const SCREEN_H = 224;
@@ -57,7 +58,11 @@ const STARS = Array.from({ length: 70 }, (_, i) => {
 
 /** draw one frame. `scale` = canvas pixels per original screen pixel */
 export function drawScene(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: number, time: number): void {
-  if (view.field) return drawField(ctx, m, view.field, scale);
+  if (view.field) {
+    const art = getArt();
+    if (art) return drawFieldOriginal(ctx, view.field, view.mode, scale, art);
+    return drawField(ctx, m, view.field, scale);
+  }
   const art = getArt();
   if (art) return drawOriginal(ctx, m, view, scale, art);
   ctx.save();
@@ -382,5 +387,34 @@ export function drawField(ctx: CanvasRenderingContext2D, m: Ram, f: FieldScene, 
       ctx.restore();
     }
   }
+  ctx.restore();
+}
+
+/** the fielding view with the original art: the ground scrolled with the camera, the original's display
+ *  objects (fielders, batsmen running, stumps, umpire, ball and shadow, your fielder's ring, the arrow,
+ *  your target marker) in its order, the pitch overlay with the runners' icons in front */
+function drawFieldOriginal(ctx: CanvasRenderingContext2D, f: FieldScene, mode: Mode, scale: number, art: Art): void {
+  ctx.save();
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  const ground = art.field.ground[mode];
+  ctx.fillStyle = "#1f5c00"; // beyond the map (the original never scrolls there)
+  ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+  ctx.drawImage(ground, -f.scroll[0], -f.scroll[1]);
+  const sheet = art.field.sprites[mode];
+  const draw = (o: FieldScene["objects"][number]) => {
+    const r = FIELD_ATLAS[o.frame];
+    if (!r) return;
+    const [sx, sy, w, h] = r;
+    if (o.x >= SCREEN_W || o.y >= SCREEN_H || o.x + w <= 0 || o.y + h <= 0) return;
+    if (o.flip) {
+      ctx.save(); ctx.translate(o.x + w, o.y); ctx.scale(-1, 1);
+      ctx.drawImage(sheet, sx, sy, w, h, 0, 0, w, h);
+      ctx.restore();
+    } else ctx.drawImage(sheet, sx, sy, w, h, o.x, o.y, w, h);
+  };
+  for (const o of f.objects) if (!o.front) draw(o);
+  if (f.overlay) ctx.drawImage(art.field.overlay, OVERLAY_AT[0], OVERLAY_AT[1]);
+  for (const o of f.objects) if (o.front) draw(o);
   ctx.restore();
 }

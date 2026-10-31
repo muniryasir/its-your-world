@@ -7,6 +7,8 @@
 // Everything is the original's logic: the delivery in the batting view, then (when the ball leaves it)
 // the fielding view, running between the wickets and run outs. The striker stays on strike (it's the nets).
 
+import { fieldObjects } from "./fieldSprites";
+import type { FieldObject } from "./fieldSprites";
 import { Ram, ROM, SIN } from "./mem";
 import { Engine, Input, EndReason } from "./engine";
 import { Context } from "./context";
@@ -252,6 +254,12 @@ export interface FieldScene {
   cam: [number, number];
   /** human fielding: the original's target marker (sub_0364BC: $C792/$C794 easing to the intercept point) */
   target?: { x: number; y: number };
+  /** the original's display objects for this step (fieldSprites.ts), back to front */
+  objects: FieldObject[];
+  /** the camera's scroll ($8D08, $8D02): screen pixel (x, y) shows ground pixel (x + sx, y + sy) */
+  scroll: [number, number];
+  /** the pitch overlay with the runners' icons is up ($C7F6) */
+  overlay: boolean;
 }
 export interface View {
   phase: "bowling" | "live" | "field" | "result";
@@ -296,7 +304,8 @@ export function fieldScene(m: Ram): Omit<View, "phase" | "mode"> {
     const [x, y] = fieldScreen(m, m.rw(0xc792), 0, m.rw(0xc794));
     target = { x, y };
   }
-  return { enginePhase: "field", sprites: [], field: { players, ball, cam: [m.rw(0x8d08), m.rw(0x8d02)], target } };
+  const scroll: [number, number] = [m.rw(0x8d08), m.rw(0x8d02)];
+  return { enginePhase: "field", sprites: [], field: { players, ball, cam: scroll, target, objects: fieldObjects(m), scroll, overlay: m.rw(0xc7f6) !== 0 } };
 }
 
 /** the batting view for the current RAM: sprites as the original places them, ball, aim marker, meters */

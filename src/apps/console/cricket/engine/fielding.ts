@@ -18,6 +18,7 @@ import { w, l, muls, mulu, asr, lsl, divs, divu, div32, hiAfterShift, swap } fro
 import { angleTo, hypot } from "./trig";
 import { rngNextAt } from "./rngAt";
 import { ballStep } from "./ball";
+import { stumpsAndUmpire, ballSprites, fielderSprites, markerSprite, hideMarker, runnerSprites, overlay, allocObjects, hideBall } from "./fieldSprites";
 import { bounceAssist } from "./batsman";
 import { padHeld } from "./pads";
 import {
@@ -69,7 +70,7 @@ function ballLive(m: Ram, d0: number): void {
 }
 
 /** sub_0486A4: ball dead */
-function ballDead(m: Ram): void { m.ww(0xe5a2, 0); m.ww(0xe936, 0); m.ww(0xe934, 0); }
+function ballDead(m: Ram): void { m.ww(0xe5a2, 0); m.ww(0xe936, 0); m.ww(0xe934, 0); hideBall(m); }
 
 /** sub_00C7D2 / sub_00C7E6: runs on this ball (match struct $BE68 + $32 + 2 * ball of the over) */
 const ballOfOver = (m: Ram) => m.rw(0xbe68 + 0x30); // sub_00C80E
@@ -140,6 +141,7 @@ function camMove(m: Ram): void { // sub_034BE2
 function ballView(m: Ram): void {
   if (m.rw(0xe936) === 0) {
     // sub_0476D6 (a close fielder holding the ball) is never the case here
+    hideBall(m);
     return;
   }
   if (m.rw(0x86b2) < 0) return;
@@ -155,6 +157,7 @@ function ballView(m: Ram): void {
   m.ww(0xe582, sx); m.ww(0xe584, sy);
   // sub_034F86: the ball's sprite box
   m.ww(0xe586, w(sx - 3)); m.ww(0xe588, w(sy - 3)); m.ww(0xe58a, 0x183);
+  ballSprites(m, sx, sy);
 }
 
 // ---------------------------------------------------------------- intercepts (sub_035922 & co)
@@ -1694,6 +1697,8 @@ export class FieldView {
     d0 = w(d0 + m.rw(0xc6cc) + 0x3c8); d1 = w(d1 + m.rw(0xc6ce) + 0x230);
     m.ww(0x8d08, d0); m.ww(0x8d0c, d0); m.ww(0x8d02, d1); m.ww(0x8d06, d1);
     m.ww(0xc6c8, 0);
+    allocObjects(m); // (sub_0347A4 and the routines before it)
+    overlay(m, true); // sub_039C62: the pitch overlay with the runners' icons
     controllers(m);
     this.phase = { kind: "main" };
   }
@@ -1712,13 +1717,15 @@ export class FieldView {
     else on(0xc730, 2);
     camOn(m, x!, y!, who!);
     camScroll(m);
+    stumpsAndUmpire(m); // sub_034DA4
     ballStep(m, () => bounceAssist(m));
     runningTick(m, this.pads);
     fieldersTick(m, this.pads);
-    // sub_035F44 (fielder sprites) also runs the human fielder's marker: sub_0364BC
-    markerTick(m);
+    // sub_035F44: the fielders' sprites; in the middle it runs the human fielder's marker, sub_0364BC
+    fielderSprites(m, () => markerTick(m));
     ballView(m);
     runnerSpritesD6(m); // sub_039260
+    runnerSprites(m);
     if (m.rw(0xe934) !== 0) ballDead(m);
     m.ww(0xe936, m.rw(0xe5a2));
   }
@@ -1777,7 +1784,7 @@ export class FieldView {
     this.humanAutoOff();
     if (m.rw(0xc6d2) < 0) {
       // loc_03AEFA: the ball reached the rope
-      this.wait("four", 1, () => { this.boundary(); }, () => holdBall(m));
+      this.wait("four", 1, () => { this.boundary(); }, () => { overlay(m, false); holdBall(m); });
       return;
     }
     if (inningsOver(m)) { setPlay(m, 5); this.wait("over", 10, () => this.wrapUp("over")); return; }
@@ -1794,7 +1801,7 @@ export class FieldView {
       this.wait("retEnd", 1, () => {
         runOutCheck(m);
         this.finish(m.rw(0xbee2) !== 0 ? "wicket" : "home");
-      }, () => holdBall(m));
+      }, () => { overlay(m, false); holdBall(m); });
       return;
     }
     // sub_03917A: the countdown
@@ -1847,8 +1854,7 @@ const m0 = (m: Ram, a: number) => m.ww(a, 0);
 
 /** sub_0364BC: the human fielder's target marker (only its state words) */
 function markerTick(m: Ram): void {
-  if (m.rw(0xc784) === 0) return;
-  if (m.rw(0x8602) === 0 || m.rw(0xc6d0) !== 0) { m.ww(0xc784, 0); return; }
+  if (m.rw(0xc784) === 0 || m.rw(0x8602) === 0 || m.rw(0xc6d0) !== 0) { m.ww(0xc784, 0); hideMarker(m); return; }
   const a0 = ptr(m, 0xc730);
   if (m.rw(0xc78c) < 0) { m.ww(0xc786, m.rw(a0 + 0x2c)); m.ww(0xc788, m.rw(a0 + 0x30)); m.ww(0xc78c, m.rw(a0 + 0x32)); }
   const sh = m.rw(0xc798) & 63;
@@ -1859,6 +1865,7 @@ function markerTick(m: Ram): void {
     if (d0 === 0) d0 = d1 < 0 ? -1 : 1;
     m.ww(cur, m.rw(cur) + d0);
   }
+  markerSprite(m);
 }
 
 /** sub_039260 -> sub_039BC2 (display): the running batsmen's sprite offsets; the second runner's
