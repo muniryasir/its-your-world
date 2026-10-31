@@ -23,6 +23,9 @@ import { fieldScreen } from "./fieldlib";
 import { padFrame, padPresses } from "./pads";
 import { setUpField } from "./teams";
 import { MASKS } from "./maskData";
+import { ballSprite } from "./collide";
+/** sub_00C8BC: a limited-overs match (coloured clothing, white ball) */
+const coloured = (m: Ram) => m.rw(0xbe68 + 0x1a) !== 0;
 import { w } from "./m68k";
 
 export type BowlerKind = "fast" | "swing" | "spin";
@@ -268,7 +271,12 @@ export interface View {
   enginePhase: string;
   /** far to near */
   sprites: Sprite[];
-  ball?: { sx: number; sy: number; hx: number; hy: number; r: number; depth: number };
+  ball?: {
+    sx: number; sy: number; hx: number; hy: number; r: number; depth: number;
+    /** the original's ball sprite (top left, frame) and its shadow on the ground */
+    sprite?: { x: number; y: number; frame: number };
+    shadow?: { x: number; y: number; frame: number };
+  };
   marker?: [number, number][];
   /** your bowling meters: power (what the needle gives the release, 0..1), pace from the run-up taps
    *  (0..1), swing/spin direction (-1 in, 1 out, 0 = fast bowler), which stage is live */
@@ -349,7 +357,18 @@ export function scene(m: Ram, ph: string, showBall = true): Omit<View, "phase" |
     const [sx, sy] = projectCam(m, x, w(-z), y);
     const [hx, hy] = projectCam(m, x, 0, y);
     const size = projectCam(m, 8, 0, w(y - 0x900))[0] - projectCam(m, 0, 0, w(y - 0x900))[0];
-    ball = { sx, sy, hx, hy, r: Math.max(1, Math.min(8, size / 2)), depth: y };
+    // the original's ball and shadow sprites (sub_048910 / sub_048A44): frame by projected size
+    const [ox, oy, frame] = ballSprite(m);
+    const shadow = m.rw(0xe982) === 0 ? { x: w(hx + ox), y: w(hy - (oy >> 1)), frame: w(frame + 0x10) } : undefined;
+    const sprite = { x: w(sx + ox), y: w(sy + oy), frame: coloured(m) ? w(frame - 0x10) : frame };
+    ball = { sx, sy, hx, hy, r: Math.max(1, Math.min(8, size / 2)), depth: y, sprite, shadow };
+  }
+  // the non-striker at the bowler's end (sub_00F34A): a static sprite on the other side from the bowler
+  if (m.rw(0xcce0) === 0 && m.rw(0xe982) === 0) {
+    const right = m.rw(0xe574) >= 0;
+    const [x, y] = projectCam(m, right ? 0xa0 : -0xa0, 0, w(0xfc54));
+    const frame = coloured(m) ? 0xdb + 0x96 : 0xdb;
+    sprites.push({ kind: "batsman", x: w(x - 0x11), y: w(y - 0x5c), frame: right ? -frame : frame, depth: w(0xfc54) });
   }
   sprites.sort((a, b) => a.depth - b.depth);
   // the gauges' needles: the original leaves them where the last delivery put them

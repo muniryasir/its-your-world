@@ -122,7 +122,7 @@ await shot(page, "cricket-result-desktop", false);
 await page.goto(BASE + "/console/cricket?cc-seed=13&cc-demo", { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Face the first ball" }).click();
 await page.getByText("Z: run").waitFor({ timeout: 40000 });
-await page.waitForTimeout(1500);
+await page.waitForTimeout(400);
 await shot(page, "cricket-field-desktop", false);
 await page.locator(".cc-result").waitFor({ timeout: 40000 });
 await shot(page, "cricket-field-result-desktop", false);

@@ -23,7 +23,7 @@ export function fielderHasBall(m: Ram): boolean {
 }
 
 /** sub_048A44: ball sprite frame and centring offset from its projected size */
-function ballSprite(m: Ram): [number, number, number] {
+export function ballSprite(m: Ram): [number, number, number] {
   const z = w(m.rw(0xe5bc) - 0x900);
   const a = projectCam(m, 0, 0, z)[0];
   const b = projectCam(m, 8, 0, z)[0];

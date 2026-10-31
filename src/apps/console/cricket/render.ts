@@ -24,6 +24,7 @@ const COLORS: Record<Sprite["kind"], string> = {
   stumps: "#ffd23f",
 };
 
+const getMaskSafe = (frame: number) => { try { return getMask(frame); } catch { return null; } };
 const silhouettes = new Map<string, HTMLCanvasElement>();
 function silhouette(frame: number, color: string): HTMLCanvasElement {
   const key = `${frame}:${color}`;
@@ -179,7 +180,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, m: Ram, view: View, sca
   // players, stumps and the ball, far to near (larger y = further from this camera)
   const items: { depth: number; draw: () => void }[] = view.sprites.map((s) => ({
     depth: s.depth,
-    draw: () => ctx.drawImage(silhouette(s.frame, COLORS[s.kind]), s.x, s.y),
+    draw: () => { if (getMaskSafe(s.frame)) ctx.drawImage(silhouette(s.frame, COLORS[s.kind]), s.x, s.y); },
   }));
   if (ball)
     items.push({
@@ -217,12 +218,6 @@ function drawOriginal(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: 
     ctx.stroke();
   }
   const ball = view.ball;
-  if (ball) {
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.beginPath();
-    ctx.ellipse(ball.hx, ball.hy, ball.r * 1.1, ball.r * 0.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
   const sheet = view.mode === "bowl" ? art.sprites.bowl : art.sprites.bat;
   const sprite = (frame: number, x: number, y: number) => {
     const r = ATLAS[Math.abs(frame)];
@@ -237,16 +232,9 @@ function drawOriginal(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: 
   const items: { depth: number; draw: () => void }[] = view.sprites.map((s) => ({ depth: s.depth, draw: () => sprite(s.frame, s.x, s.y) }));
   // the umpire and the bowler's-end stumps stand just behind the bowler's crease
   items.push({ depth: -0x440, draw: () => ctx.drawImage(art.staticLayer, STATIC_AT[0], STATIC_AT[1]) });
-  if (ball)
-    items.push({
-      depth: ball.depth - 1,
-      draw: () => {
-        ctx.fillStyle = "#c8102e";
-        ctx.beginPath(); ctx.arc(ball.sx, ball.sy, ball.r, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "rgba(255,255,255,0.55)";
-        ctx.fillRect(ball.sx - ball.r * 0.45, ball.sy - ball.r * 0.45, Math.max(0.6, ball.r * 0.4), Math.max(0.6, ball.r * 0.4));
-      },
-    });
+  // the ball and its shadow: the original's sprites (the shadow at depth $7FFF, behind everything)
+  if (ball?.shadow) { const sh = ball.shadow; items.push({ depth: 0x7fff, draw: () => sprite(sh.frame, sh.x, sh.y) }); }
+  if (ball?.sprite) { const bs = ball.sprite; items.push({ depth: ball.depth - 1, draw: () => sprite(bs.frame, bs.x, bs.y) }); }
   items.sort((a, b) => b.depth - a.depth).forEach((it) => it.draw());
   ctx.drawImage(art.fg[view.mode], 0, 0); // high-priority background tiles (the gauges) cover low-priority sprites
   // the gauge needles (the original's high-priority sprites at the gauges)
