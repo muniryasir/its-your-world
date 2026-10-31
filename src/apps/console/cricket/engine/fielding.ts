@@ -1615,7 +1615,7 @@ function fieldersInit(m: Ram): void {
 }
 
 /** sub_0351BA / sub_0351DE: placings to field positions */
-function placings(m: Ram): void {
+export function placings(m: Ram): void {
   for (const a0 of recs(m)) {
     m.ww(a0 + 0x3c, divs(muls(m.rw(a0 + 0x34), 0x13b0), 0x6000).q);
     m.ww(a0 + 0x44, divs(muls(m.rw(a0 + 0x36), 0x1c24), 0x6000).q);

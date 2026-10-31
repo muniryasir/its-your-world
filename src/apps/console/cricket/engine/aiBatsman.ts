@@ -104,7 +104,7 @@ export function aiShot(m: Ram, ctx: Context): number {
 export function chooseShot(m: Ram, ctx: Context): number {
   const saved = m.rw(0xe936);
   m.ww(0xe936, m.rw(0xe5a2));
-  for (let i = 0; i < 11; i++) m.wl(0xdeb0 + 4 * i, 0xffe000 + 8 * i); // sub_04655A
+  for (let i = 0; i < 11; i++) m.wl(0xdeb0 + 4 * i, 0xffffe000 + 8 * i); // sub_04655A
   m.ww(0xdfc6, project(m.rw(BAT), 0, m.rw(BAT + 4))[0]);
   let p = predictAtY(m, m.rw(BAT + 4)); // sub_045F10
   m.ww(0xdfc8, m.rw(0xd356));

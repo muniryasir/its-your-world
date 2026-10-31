@@ -49,6 +49,7 @@ export type Phase =
   | { kind: "runup"; left: number }
   | { kind: "live" }
   | { kind: "handover"; left: number }
+  | { kind: "tail"; d7: number }
   | { kind: "done"; reason: EndReason };
 
 /** passes between the per-delivery set-up and the aim (camera settle, 13 passes, 1 more) */
@@ -153,6 +154,7 @@ export class Engine {
         this.checkDue = true;
         return;
       case "handover":
+      case "tail":
         computerAim(m, this.ctx); // sub_04336A
         this.tick(input);
         this.checkDue = true;
@@ -173,6 +175,18 @@ export class Engine {
     this.phase = { kind: "handover", left: 14 };
     this.checkDue = false;
   }
+
+  /** sub_00ED82(d7) after the ball-live loop ended (match play; the nets stop at "done"): the batting
+   *  view runs on, d7 + 1 passes that a button press cuts short (d7 >= 0), or -d7 passes (d7 < 0).
+   *  The phase is "done" again when they are over. */
+  tail(d7: number): void {
+    padPresses(this.m, 0); padPresses(this.m, 1); // sub_00425E
+    const reason = this.phase.kind === "done" ? this.phase.reason : "dead";
+    this.tailReason = reason;
+    this.phase = { kind: "tail", d7 };
+    this.checkDue = false;
+  }
+  private tailReason: EndReason = "dead";
 
   private meterAdvance(): void {
     this.m.ww(0xe956, (this.m.rw(0xe956) + this.m.rw(0xe952)) & 0x7ff);
@@ -237,6 +251,13 @@ export class Engine {
         if (computerButton(m) !== 0 || --ph.left < 0) {
           m.ww(0xbf22, 0); m.ww(0xe58c, 0); m.wb(0x87f6, 0xff); m.ww(0x87f8, 0);
           this.phase = { kind: "done", reason: "offscreen" };
+        }
+        return;
+      case "tail":
+        if (ph.d7 < 0) {
+          if (++ph.d7 >= 0) this.phase = { kind: "done", reason: this.tailReason };
+        } else if (computerButton(m) !== 0 || --ph.d7 < 0) {
+          this.phase = { kind: "done", reason: this.tailReason };
         }
         return;
       default:
