@@ -10,6 +10,7 @@
 
 import { Ram, ROM } from "./mem";
 import { w, l, muls, divs, div32 } from "./m68k";
+import { placeSprite } from "./fielders";
 
 const REC = 0x68;
 const base = (m: Ram) => m.rl(0xb522) & 0xffff;
@@ -75,7 +76,7 @@ function suitability(m: Ram, a1: number, wt: number): number {
 }
 
 /** sub_00B116: rank the unplaced players by suitability into the list at $A678 */
-function rankPlayers(m: Ram, wt: number): void {
+export function rankPlayers(m: Ram, wt: number): void {
   m.wl(0xa6a0, wt); m.ww(0xa676, -1);
   for (const a1 of recs(m)) m.wb((m.rl(a1 + 2) & 0xffff) + 0x19, 0);
   let out = 0xa678;
@@ -224,7 +225,12 @@ export function setUpField(m: Ram): void {
     }
   }
   m.wl(0xe1a8, 0);
-  // sub_047D3E for each (their sprites) is done by the batting view's renderer
+  // sub_047D3E: their sprites
+  placeSprite(m, m.rl(0xe1b4) & 0xffff);
+  if (slips !== 0) {
+    placeSprite(m, m.rl(0xe1b8) & 0xffff);
+    if (slips !== 1) placeSprite(m, m.rl(0xe1bc) & 0xffff);
+  }
 }
 
 /** sub_00BF5A: also lists the fielders in placing order at $BE1E (outfield, keeper, slips) */

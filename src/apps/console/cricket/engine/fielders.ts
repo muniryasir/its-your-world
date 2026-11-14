@@ -411,6 +411,15 @@ function registerFielder(m: Ram, f: number, twice = false): void {
   if (twice) registerObject(m, sx, sy, frame, m.rw(f + 0x104), f + 0x11e);
 }
 
+/** sub_047D3E alone (the field's set-up, sub_046FA2): the sprite's screen position and frame */
+export function placeSprite(m: Ram, f: number): void {
+  const [sx, sy] = projectCam(m, m.rw(f + 0xfc), m.rw(f + 0x100), m.rw(f + 0x104));
+  const pose = w(m.rw(f + 0x10c) + m.rw(f + 0x10a));
+  const d4 = poseIndex(m, f, pose);
+  m.ww(f + 0x12c, w(sx - m.rw(f + 0x3e + d4))); m.ww(f + 0x12e, w(sy - m.rw(f + 0x3e + d4 + 2)));
+  m.ww(f + 0x130, w(pose + m.rw(f + 0xfa)));
+}
+
 /** where registerFielder last drew this fielder: screen top-left and frame (negative = mirrored) */
 export function fielderSprite(m: Ram, f: number): { x: number; y: number; frame: number } {
   const pose = w(m.rw(f + 0x10c) + m.rw(f + 0x10a));

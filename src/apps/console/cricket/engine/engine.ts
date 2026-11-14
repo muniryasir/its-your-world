@@ -5,6 +5,7 @@
 // [work, tick, wait for the frame] then [after-the-frame checks]; step() runs the previous pass's
 // checks first, then this pass's work and tick, which matches where the emulator's state is sampled.
 
+import { fieldMapShow, fieldMapHide, fieldMapTick } from "./fieldMap";
 import { Ram, ROM } from "./mem";
 import { Context } from "./context";
 import { ballStep } from "./ball";
@@ -92,6 +93,7 @@ export class Engine {
           this.consumeLatch();
           crowdNoise(m);
         }
+        if (ph.left === 1) fieldMapShow(m); // sub_03AD3A ($E2FC)
         this.tick(input);
         ph.left--;
         this.checkDue = true;
@@ -168,8 +170,7 @@ export class Engine {
    *  for 15 passes (sub_00ED82 with d7 = 14) before the fielding view takes over; done again after. */
   handOver(): void {
     const m = this.m;
-    // sub_03AD7C
-    if (m.rw(0xc8a2) >= 0 && m.rw(0xc8a2) !== 2) m.ww(0xc8a2, 2);
+    fieldMapHide(m); // sub_03AD7C
     m.wb(0xbf22, 0xff);
     padPresses(m, 0); padPresses(m, 1); // sub_00425E: presses so far are dropped
     this.phase = { kind: "handover", left: 14 };
@@ -344,6 +345,8 @@ export class Engine {
     closeFieldersTick(m); // sub_0471D8, sub_047C76, sub_047246, sub_047CB2
     bowlerTick(m, this.ctx); // sub_044236
     wideCheck(m); // sub_0484B8
+    // sub_048560: the umpire's signal (wide, out ...) raises his arm after three ticks
+    if (m.rw(0xe578) !== 0 && m.rw(0xe57e) !== 1 && m.aw(0xe57a, -1) < 0) { m.ww(0xe57a, 1); m.aw(0xe57e, 1); }
     stumpsAftermath(m); // sub_00EE9C -> sub_00EED6
     registerStumps(m);
     // sub_04BA94: a requested ball reset
@@ -355,6 +358,7 @@ export class Engine {
     contact(m, this.ctx); // sub_0458E0
     testObjects(m, HANDLERS); // sub_048C26
     meterBlink(m); // sub_04C190
+    fieldMapTick(m); // sub_03AD98
   }
 }
 

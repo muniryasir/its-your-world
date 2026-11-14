@@ -80,4 +80,14 @@ export const ROM_SEGMENTS: [number, string][] = [
   [0x0547b0, "+yA="],
   // $0361C8-$03633A fielding view: fielder sprite offsets by direction and animation frame (5 x 37)
   [0x0361c8, "DCYMJwwnDCYMJgwnDCcMJgwmDCYMJgwkDCYMJgwmDCYMJgwmDCYMJwwnDCYMJgwuDCYMJgwmDCYMJgsmCyYNJQgmCiQRJA0kECYKKQoqCioKKQopCioKKgopCikKKgwpCikKKQopCikKKQopCikKKQopByoKKQopCikKKQopBSoGKQMrCikKKQ0pEikGKQYrASv+LAwmCCcNJxUmCycJJwsnEycTJwwnFScTJgwmDCYMJgwmDCYMJgwmDCYKJgwnDCcMLgwmDCYVJg0mCSYMJgwmDyYMJgYmBCb6JvomDCYMJwwmDCYMJwwnDCYMJgwnCycLJwsnDCYMJgwmDCYMJgwmDCYMJgokDCYMJgwuDCYMJgwlDCUIBwsmCyYLJwUiAyICIQMhAiEMJgwnDCcMJgwmDCcMJgwmDCcMIwwfDCANJQwkDCQMJgwmDCYMJgwmDCUMJgwmDC4LJgsmCxsLDQsBDCYMJgwlDiMMIwshDCEKIQ=="],
+  // $02D718-$02D826 match: pitch types (5 pointers + 5 records of bounce / turn / wear values)
+  [0x02d718, "AALXLAAC114AAteQAALXwgAC1/QAsADIAPAAoAD/AAABAAEAAAEAAA7uDMwKqgiIAkgAJghADGYAAAosCiwGigisBKgEhgCkALQA8ACgAP4AAAFAAQAAAQAADu4MzAqqCIgCSAAmCEAMZgAACiwKLAaKCKwEqASGAJgAoADwAIAA/gAQAMABAAABAAAO7gzMCqoIiAJIACYIQAxmAAAKLAosBIoIrAKGAGYAjACCAPAAgAD9ACABAAEAAAEAAA7uDMwKqgiIAkgAJghADGYAAAosCiwCZgSKAIQAYgCAAGQA8ACAAP0AAAFAAQAAAQAADu4MzAqqCIgCSAAmCEAMZgAACiwKLAJGBGgAYABA"],
+  // $02D908-$02D918 match: outfield speed by weather
+  [0x02d908, "AQABQAFAASABQAEAASABAA=="],
+  // $02DA50-$02DA60 match: chance of rain by weather
+  [0x02da50, "/4D/wAAAABAAQABAAIAAgA=="],
+  // $053684-$0536AE match: weights for ranking the bowlers (opening, change, spin)
+  [0x053684, "ABAQAAgACAAMAP/A8AAAEAgADAAMABAA/8DwAAAQCAAQABAADAD/wPAA"],
+  // $04B608-$04B612 match: follow-on leads by length of the match
+  [0x04b608, "AEsAZACWAJYAyA=="],
 ];

@@ -14,11 +14,11 @@ import { Engine, Input, EndReason } from "./engine";
 import { Context } from "./context";
 import { FieldView, placings } from "./fielding";
 import { padFrame, padPresses } from "./pads";
-import { setUpField, placeFielders, fieldOrder } from "./teams";
+import { setUpField, placeFielders, fieldOrder, assignFielders, rankPlayers } from "./teams";
 import { aiTablesForBowler } from "./aiBatsman";
 import { meterReset } from "./delivery";
 import { setHandedness } from "./batsman";
-import { muls } from "./m68k";
+import { muls, divs } from "./m68k";
 import { w, l } from "./m68k";
 import { rngNextAt } from "./rngAt";
 
@@ -401,6 +401,8 @@ export type MatchEvent =
   | { kind: "wicket"; how: number; batsman: number }
   | { kind: "overEnd" }
   | { kind: "chooseBowler"; forced: boolean }
+  | { kind: "rain" }
+  | { kind: "inningsStart" }
   | { kind: "inningsEnd" }
   | { kind: "matchEnd" };
 
@@ -417,6 +419,16 @@ export function* overFlow(m: Ram, resume = false): Generator<MatchEvent, void, n
       if (idx !== undefined) setBowler(m, (m.rl(0xb522) & 0xffff) + REC * idx);
     }
     aiTablesForBowler(m, contextFromRam(m)); // sub_04630A
+    // sub_041C9A: rain stops play, once: on the forecast day ($C5E2) when the clock passes $C5E4
+    if (m.rw(0xc5e2) >= 0 && mw(m, 0x28) === m.rw(0xc5e2) && m.rw(0xbf0a) >= m.rw(0xc5e4)) {
+      // The scene (sub_041D5A: the covers come on and the clock runs until the rain eases) is not
+      // ported yet: whoever runs the flow moves the clock ($BF0A) on while this event is out.
+      yield { kind: "rain" };
+      m.ww(0xc5e2, -1); m.ww(0xe98a, -1);
+      if (m.rw(0xbedc) === 0 && m.rw(0xbf0a) >= 0x2fd) m.ww(0xbedc, -1); // lunch has gone
+      if (m.rw(0xbede) === 0 && m.rw(0xbf0a) >= 0x39d) m.ww(0xbede, -1); // tea has gone
+      setMw(m, 0x22, Math.min(mw(m, 0x22) + 2, 4)); // a wetter pitch
+    }
   }
   for (;;) {
     if (!resume) {
@@ -462,4 +474,181 @@ export function* inningsOvers(m: Ram, resume = false): Generator<MatchEvent, voi
     // lunch, tea, close of play (sub_02F606 / 02F74E / 02F896): phase 4b
   }
   m.wl(0xbf0a, l(m.rl(0xbf0a) + 0xf0000));
+}
+
+// ---------------------------------------------------------------- between innings (sub_00DA70)
+
+const fieldRec = (m: Ram, i: number) => (m.rl(0xb522) & 0xffff) + REC * i;
+const hiWord = (v: number) => w(l(v) >> 16);
+
+/** sub_02D918: will it rain? $C5E0 the chance, $C5E2 the day (-1: no rain), $C5E4 the time of day */
+function weather(m: Ram): void {
+  if (m.rw(0xc418) !== 0) { m.ww(0xc5e2, -1); return; }
+  let d7 = divs(muls(w(mw(m, 0xe) + 1), 0x60), 5).q;
+  const limits = [0x13, 0x27, 0x31, 0x36, 0x3b, 0x59];
+  let d0 = limits.indexOf(mw(m, 0x12)) + 1;
+  if (d0 === 0) d0 = 7;
+  d7 = w(d7 + divs(muls(d0, 0x60), 7).q);
+  if (mw(m, 0x14) !== 1) d7 = w(d7 + 0x20);
+  d7 = w(d7 + (rngNextAt(m) & 0x1f));
+  d7 = (d7 & 0xffff) >>> 1;
+  d7 = w(d7 + ROM.rw(0x2da50 + 2 * mw(m, 0x24)));
+  if (d7 < 3) d7 = 3;
+  if (d7 > 0x100) d7 = 0x100;
+  m.ww(0xc5e0, d7);
+  d7 = w(d7 + d7);
+  if ((rngNextAt(m) & 0xff) > d7) { m.ww(0xc5e2, -1); return; }
+  const scaled = (k: number) => hiWord(l(muls(rngNextAt(m) & 0x7fff, k) * 2 + 0x7fff));
+  m.ww(0xc5e2, w(scaled(w(mw(m, 0xe) + 1)) - 1));
+  if (w(rngNextAt(m)) < 0) m.ww(0xc5e4, w(scaled(0x28) + 0x2c1));
+  else m.ww(0xc5e4, w(scaled(0x3c) + 0x361));
+}
+
+/** sub_02D8A2: the pitch's values for this stage of the match ($C5BA.. bounce, turn; a copy at $C5CE),
+ *  the outfield by the weather, then the rain forecast */
+export function pitchAndWeather(m: Ram): void {
+  const a0 = ROM.rl(0x2d718 + 4 * mw(m, 0x22));
+  for (let i = 0; i < 0x12; i += 2) m.ww(0xc5ce + i, ROM.rw(a0 + i));
+  for (let i = 0; i < 9; i++) m.ww(0xc5ba + 2 * i, ROM.rw(a0 + 2 * i));
+  const d0 = ROM.rw(0x2d908 + 2 * mw(m, 0x24));
+  m.ww(0xc5c8, d0); m.ww(0xc5de, d0);
+  weather(m);
+}
+
+/** sub_00BEAA: a side's records start an innings clean (batting and bowling figures) */
+function clearRecords(m: Ram, a0: number): void {
+  for (let k = 0; k < 11; k++, a0 += REC) {
+    for (const o of [6, 0x10, 0x12, 0x14, 0x16, 0x1a, 0x1c, 0x1e, 0x20]) m.ww(a0 + o, 0);
+    m.ww(a0 + 0xc, 3);
+  }
+}
+
+/** sub_00BE66: who bats and who fields in this innings ($B51C / $B522 the sides' records, $B520 / $B526
+ *  their controllers) */
+function swapSides(m: Ram): void {
+  // sub_00BEEC: the toss (+8), flipped by the follow-on (+$A) and by the innings' parity
+  let d1 = mw(m, 8);
+  const inn = inningsNo(m);
+  if (inn >= 2) d1 ^= mw(m, 0xa);
+  if (inn & 1) d1 = ~d1;
+  const side = (sel: number, recPtr: number, ctl: number) => {
+    m.ww(0xb518, sel);
+    const a0 = w(sel) === 0 ? 0xb528 : 0xb9a0;
+    m.wl(recPtr, l(0xffff0000 | a0));
+    m.ww(ctl, w(sel) !== 0 ? mw(m, 6) : mw(m, 2));
+    clearRecords(m, a0);
+  };
+  side(w(d1), 0xb51c, 0xb520);
+  side(w(~d1), 0xb522, 0xb526);
+}
+
+/** sub_020598: the first two in the batting order open */
+function openers(m: Ram): void {
+  m.ww(batsmanAt(m, 0) + 6, 1);
+  m.ww(batsmanAt(m, 0) + 6, 2);
+}
+
+/** sub_00B1F4: the keeper and the opening bowlers; the computer captain also makes his plan
+ *  (sub_00B258: six bowlers at $A6A6 with the length of their spells) */
+function openingBowlers(m: Ram): void {
+  // sub_00B3C2
+  { m.ww(0xbe18, 0); let a1 = fieldRec(m, 0), found = -1;
+    for (;;) { if (m.rw(a1 + 6) === 1) { found = a1; break; } a1 += REC; if (m.aw(0xbe18, 1) === 0xb) break; }
+    if (found >= 0) { m.ww(found + 6, 0); m.wl(0xa6be, 0); }
+    m.wl(0xa6c2, 0); }
+  if (m.rw(0xb526) >= 0) {
+    // a human captain: the two best opening bowlers until he chooses (sub_0210FE is the page's screen)
+    rankPlayers(m, 0x53684);
+    setBowler(m, fieldRec(m, m.rw(0xa678)));
+    setOtherEnd(m, fieldRec(m, m.rw(0xa67a)));
+    rankPlayers(m, 0x536ae);
+    m.ww(fieldRec(m, m.rw(0xa678)) + 6, 4);
+    return;
+  }
+  rankPlayers(m, 0x536ae);
+  m.ww(fieldRec(m, m.rw(0xa678)) + 6, 4);
+  let a1 = 0xa6a6;
+  const take = (wt: number, n: number) => { // sub_00B306
+    rankPlayers(m, wt);
+    for (let k = 0; k < n; k++) {
+      const idx = m.rw(0xa678 + 2 * k);
+      m.ww(a1, idx); m.ww(a1 + 2, 0); a1 += 4;
+      m.ww(fieldRec(m, idx) + 6, 1);
+    }
+  };
+  take(0x53684, 2); take(0x53692, 1); take(0x536a0, 2); take(0x53692, 1);
+  for (let k = 0; k < 6; k++) m.ww(fieldRec(m, m.rw(0xa6a6 + 4 * k)) + 6, 0);
+  // sub_00B32C: the spells: half the bowler's share for a fast bowler, a quarter otherwise, less one at random
+  let d6 = mw(m, 0x12);
+  if (d6 < 0) d6 = 0x5a;
+  d6 = divs(d6, 5).q;
+  for (let k = 0; k < 6; k++) {
+    const attr = m.rl(fieldRec(m, m.rw(0xa6a6 + 4 * k)) + 2) & 0xffff;
+    let t = m.rw(attr + 0x14); if (t < 0) t = w(-t);
+    const d1 = (d6 & 0xffff) >>> (t === 1 ? 1 : 2);
+    let d0 = w(d1 + (w(rngNextAt(m)) < 0 ? -1 : 0));
+    if (d0 < 1) d0 = 1;
+    m.aw(0xa6a6 + 4 * k + 2, d0);
+  }
+  setBowler(m, fieldRec(m, m.rw(0xa6a6)));
+  setOtherEnd(m, fieldRec(m, m.rw(0xa6aa)));
+  m.ww(0xa6a4, 2);
+}
+
+/** sub_00C086: fill in every possible bowler's field with players (the keeper stays the keeper) */
+function fieldsForAllBowlers(m: Ram): void {
+  let keeper = -1;
+  for (let k = 0; k < 11; k++) if (m.rw(fieldRec(m, k) + 6) === 4) { keeper = fieldRec(m, k); break; }
+  if (keeper < 0) { rankPlayers(m, 0x536ae); keeper = fieldRec(m, m.rw(0xa678)); }
+  m.wl(0xbe4a, l(0xffff0000 | keeper));
+  for (let k = 0; k < 11; k++) { m.ww(0xbe4e + 2 * k, m.rw(fieldRec(m, k) + 6)); m.ww(fieldRec(m, k) + 6, 0); }
+  for (let k = 0; k < 11; k++) {
+    const a0 = fieldRec(m, k);
+    if (a0 === keeper) continue;
+    m.ww(a0 + 6, 1);
+    assignFielders(m);
+    m.ww(a0 + 6, 0);
+  }
+  for (let k = 0; k < 11; k++) m.ww(fieldRec(m, k) + 6, m.rw(0xbe4e + 2 * k));
+}
+
+/** sub_00DA70: the innings of a match, one after the other. `resume`: the RAM is at a delivery. */
+export function* matchInnings(m: Ram, resume = false): Generator<MatchEvent, void, number | undefined> {
+  if (!resume) {
+    // sub_00DBDC: the clock starts at 10:30 (10:60 overs on the first day: 10:00)
+    m.ww(0xbedc, 0); m.ww(0xbede, 0);
+    m.wl(0xbf0a, m.rw(0xbe7a) === 0x3b && m.rw(0xbe76) === 0 ? 0x2760000 : 0x2940000);
+  }
+  for (;;) {
+    if (!resume) {
+      if (m.rw(0x86b0) !== 0) return;
+      setMw(m, 0x4e, 0); setMw(m, 0x52, 0); setMw(m, 0x50, 0); // the extras
+      // sub_04B52A (a human captain may enforce the follow-on): phase 4b
+      swapSides(m);
+      openers(m); // sub_0203EA: a human captain's batting order is the page's screen
+      openingBowlers(m);
+      m.ww(0xc11e, 0);
+      m.ww(0xdfde, 0); // sub_046856: the computer batsmen's shot histories
+      for (let i = 0; i < 32; i += 4) m.wl(0xdfe0 + i, 0);
+      fieldsForAllBowlers(m);
+      fieldOrder(m);
+      placeFielders(m); placings(m);
+      setMw(m, 0x2e, 0);
+      m.ww(0xe982, 0); m.ww(0xe984, 0);
+      yield { kind: "inningsStart" };
+    }
+    yield* inningsOvers(m, resume);
+    resume = false;
+    m.ww(0xe982, 0);
+    if (m.rw(0xc61a) !== 0 || m.rw(0x86b0) !== 0) return;
+    if (inningsNo(m) === mw(m, 0x14)) return; // sub_00C628: that was the last innings
+    setMw(m, 0x2c, inningsNo(m) + 1);
+    if (targetPassed(m)) return;
+    m.ww(0xc594, 1); // sub_00DC18 (career figures, the saved game's checksum: not kept)
+    yield { kind: "inningsEnd" };
+    pitchAndWeather(m); // sub_02D8A2, and again from the pitch report (sub_02DA60)
+    pitchAndWeather(m);
+    if (targetPassed(m)) return;
+    if (!(m.rw(0xbedc) !== 0 && m.rw(0xbf0a) === 0x334)) m.wl(0xbf0a, l(m.rl(0xbf0a) + 0xa0000));
+  }
 }
