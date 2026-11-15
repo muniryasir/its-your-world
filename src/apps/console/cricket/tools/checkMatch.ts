@@ -179,11 +179,26 @@ function playDelivery(m: Ram, F0: number, F1: number): Delivery {
   return d;
 }
 
-let i = idx.findIndex((h) => h.pc === 0xe13e);
-const m = new Ram(snap(i).slice());
-const flow = matchFlow(m, true);
+// A recording that begins at the innings loop's entry ($DA70) also checks the first innings' set-up.
+const fromStart = idx[0].pc === 0xda70;
+let i = fromStart ? 1 : idx.findIndex((h) => h.pc === 0xe13e);
+const m = new Ram(snap(fromStart ? 0 : i).slice());
+const flow = matchFlow(m, !fromStart);
 let result: MatchResult | null = null;
 let ev: IteratorResult<MatchEvent, void> = { done: false, value: { kind: "delivery" } };
+if (fromStart) {
+  ev = flow.next();
+  while (!ev.done && ev.value.kind !== "delivery") {
+    let answer: number | undefined;
+    if (ev.value.kind === "chooseOpeningBowlers") {
+      const r = snap(i), rl = (a: number) => ((r[a] << 24) | (r[a + 1] << 16) | (r[a + 2] << 8) | r[a + 3]) >>> 0;
+      const at = (p: number) => ((rl(p) & 0xffff) - (rl(0xb522) & 0xffff)) / 0x68;
+      answer = at(0xa6be) | (at(0xa6c2) << 8);
+    }
+    ev = flow.next(answer);
+  }
+  compare("B", m, i, "first innings set-up");
+}
 for (;;) {
   if (ev.done) { console.log(`match flow ended at snapshot ${i} of ${idx.length} (${idx[i]?.pc.toString(16)})`); break; }
   const e = ev.value;
