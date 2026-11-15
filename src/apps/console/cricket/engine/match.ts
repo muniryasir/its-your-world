@@ -681,13 +681,13 @@ export function* matchInnings(m: Ram, resume = false): Generator<MatchEvent, voi
     }
     yield* inningsOvers(m, resume);
     resume = false;
+    yield { kind: "inningsEnd" }; // (the scorecard is whole here: the next innings' set-up clears the records)
     m.ww(0xe982, 0);
     if (m.rw(0xc61a) !== 0 || m.rw(0x86b0) !== 0) return;
     if (inningsNo(m) === mw(m, 0x14)) return; // sub_00C628: that was the last innings
     setMw(m, 0x2c, inningsNo(m) + 1);
     if (targetPassed(m)) return;
     m.ww(0xc594, 1); // sub_00DC18 (career figures, the saved game's checksum: not kept)
-    yield { kind: "inningsEnd" };
     pitchAndWeather(m); // sub_02D8A2, and again from the pitch report (sub_02DA60)
     pitchAndWeather(m);
     if (targetPassed(m)) return;
@@ -716,4 +716,21 @@ export function* matchFlow(m: Ram, resume = false): Generator<MatchEvent, void, 
   yield* matchInnings(m, resume);
   if (m.rw(0x86b0) !== 0) return; // abandoned from the menu
   yield { kind: "matchEnd", result: matchResult(m) };
+}
+
+/** sub_00D960 between the toss and the innings loop: the match's counters start clean. The match
+ *  settings (teams, controllers, +8 who bats first, +$12 overs, pitch, weather) are already in the struct. */
+export function matchStart(m: Ram): void {
+  m.ww(0x86b0, 0); m.ww(0xbf08, 0); m.ww(0xc61a, 0); m.ww(0xd294, 0);
+  if (mw(m, 0x10) === 0) m.ww(0xbf06, 0);
+  // sub_00C5E4: first innings, no wickets, no runs, no extras, nothing declared, no follow-on
+  setMw(m, 0x2c, 0);
+  m.wl(MATCH + 0x54, -1); m.wl(MATCH + 0x58, -1);
+  m.wl(MATCH + 0x3e, 0); m.wl(MATCH + 0x42, 0);
+  setMw(m, 0x4e, 0); setMw(m, 0x52, 0); setMw(m, 0x50, 0);
+  m.wl(MATCH + 0x46, 0); m.wl(MATCH + 0x4a, 0);
+  setMw(m, 0xa, 0);
+  setMw(m, 0xc, 0); // sub_00C2F2
+  for (let i = 0; i < 4; i++) m.ww(0x695c + 2 * i, mw(m, 0x18)); // sub_0125BC: fielding by hand, per controller
+  setMw(m, 0x28, 0); // sub_00C322: the first day
 }
