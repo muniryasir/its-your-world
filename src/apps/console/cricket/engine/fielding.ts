@@ -1774,7 +1774,7 @@ export class FieldView {
   /** loc_034A58: the ball is over; without a batting milestone (sub_04C614) one more step */
   private wrapUp(end: FieldEnd): void {
     const m = this.m;
-    if (milestone(m)) { this.finish(end); return; }
+    if (milestone(m)) { celebration(m); this.finish(end); return; }
     this.wait("endX", 1, () => this.finish(end), () => holdBall(m));
   }
 
@@ -1818,6 +1818,7 @@ export class FieldView {
     if (m.rw(0x8606) === 0 || m.rw(0xc7ca) !== 0) setBallRuns(m, w(ballRuns(m) + 4));
     else if (m.rw(0xe580) !== 0) { setBallRuns(m, 4); m.aw(striker(m) + 0x1e, 1); }
     else { setBallRuns(m, 6); m.aw(striker(m) + 0x20, 1); }
+    if (milestone(m)) celebration(m); // $03AF90 (otherwise the boundary's banner)
     this.finish("boundary");
   }
 
@@ -1915,6 +1916,33 @@ function milestone(m: Ram): boolean {
     }
     m.wl(0xe966, a0);
     return true;
+  }
+}
+
+/** sub_04C740: the batsman's 50 / 100 on the screen. Only its timers matter here: the flashing star
+ *  draws a random number each time it changes, for as long as the animation script (ROM $4CB56) runs. */
+function celebration(m: Ram): void {
+  overlay(m, false); // sub_039CA6
+  holdBall(m);
+  m.ww(0xe974, 7); m.ww(0xe976, 0); m.ww(0xe970, 0x60); m.ww(0xe972, 0x30);
+  m.ww(0xe97c, 0xb); m.ww(0xe978, 0); m.ww(0xe97a, 0xf);
+  const banner = () => { if (m.aw(0xe974, -1) < 0) { m.ww(0xe974, 7); m.ww(0xe976, ~m.rw(0xe976)); } }; // sub_04C98A
+  const star = () => { // sub_04CA2A
+    if (m.aw(0xe97c, -1) < 0) { m.ww(0xe97c, (rngNextAt(m) & 7) + 7); m.ww(0xe97e, ~m.rw(0xe97e)); }
+  };
+  const script = (): boolean => { // sub_04CA9A: true when the script has run through (it restarts at its fourth entry)
+    if (m.aw(0xe97a, -1) >= 0) return false;
+    const d3 = w(m.rw(0xe978) + 4);
+    m.ww(0xe978, d3);
+    if (ROM.rw(0x4cb56 + d3) < 0) { m.ww(0xe978, 0xc); m.ww(0xe97a, 0xf); return true; }
+    m.ww(0xe97a, ROM.rw(0x4cb56 + d3 + 2));
+    return false;
+  };
+  star(); script();
+  let d7 = ROM.rw((m.rl(0xe966) >>> 0) + 0xa) === 2 ? 9 : 7;
+  for (let guard = 0; guard < 100000; guard++) {
+    banner(); star();
+    if (script() && --d7 < 0) break;
   }
 }
 

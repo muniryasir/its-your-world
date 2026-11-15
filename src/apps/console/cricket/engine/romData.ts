@@ -90,4 +90,6 @@ export const ROM_SEGMENTS: [number, string][] = [
   [0x053684, "ABAQAAgACAAMAP/A8AAAEAgADAAMABAA/8DwAAAQCAAQABAADAD/wPAA"],
   // $04B608-$04B612 match: follow-on leads by length of the match
   [0x04b608, "AEsAZACWAJYAyA=="],
+  // $04CB42-$04CB6E batting milestone celebration: sprite offsets and the animation script
+  [0x04cb42, "AA4AOAAPADkAEgBBABIATgASAE8AAAAEAAEABAACAAQAAwATAAQAE///ABA="],
 ];

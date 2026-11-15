@@ -152,10 +152,12 @@ export class Delivery {
   step(input: Input): void {
     if (this.done) return;
     if (this.field) {
+      // The frame's pad first: the last step's after-the-frame checks (a human fielder holding the
+      // ball, his idle count) read it; if they end the view, no step runs.
       padFrame(this.m, input.held);
       this.field.step();
+      if (this.field.phase.kind === "done" || this.fieldSteps > 100000) { this.finish({ reason: "field" }); return; }
       this.fieldSteps++;
-      if (this.field.done || this.fieldSteps > 100000) this.finish({ reason: "field" });
       return;
     }
     this.engine.step(input);
@@ -430,6 +432,7 @@ export function* overFlow(m: Ram, resume = false): Generator<MatchEvent, void, n
       // ported yet: whoever runs the flow moves the clock ($BF0A) on while this event is out.
       yield { kind: "rain" };
       m.ww(0xc5e2, -1); m.ww(0xe98a, -1);
+      m.ww(MATCH + 0x32 + 2 * ballsInOver(m), 0); // (the scene sets up a delivery: sub_00C7BE)
       if (m.rw(0xbedc) === 0 && m.rw(0xbf0a) >= 0x2fd) m.ww(0xbedc, -1); // lunch has gone
       if (m.rw(0xbede) === 0 && m.rw(0xbf0a) >= 0x39d) m.ww(0xbede, -1); // tea has gone
       setMw(m, 0x22, Math.min(mw(m, 0x22) + 2, 4)); // a wetter pitch
@@ -458,6 +461,30 @@ function atBowlerLimitOrPast(m: Ram): boolean {
   d1 = ((d1 + 1) / 5) | 0;
   if (d1 === 0) d1 = 1;
   return oversOf(m, fielderAt(m, 1)) >= d1;
+}
+
+/** sub_021B34: may this player of the fielding side be picked in the bowler menu? `forced`: the bowler has
+ *  bowled his limit and a new one is needed now ("Please Select A New Bowler"); otherwise the captain
+ *  changes who bowls the next over ("change next bowler"). Not the bowler or the keeper, not past the
+ *  limit of a fifth of the innings' overs, and for a forced change not the bowler at the other end. */
+export function canBowl(m: Ram, idx: number, forced: boolean): boolean {
+  const a0 = (m.rl(0xb522) & 0xffff) + REC * idx;
+  const role = m.rw(a0 + 6);
+  // (for a forced change the menu first takes the ball from the bowler: he is past the limit anyway)
+  if (role !== 0 && role !== 3 && !(forced && role === 1)) return false;
+  const otherEnd = (m.rl(0xa6c2) & 0xffff) === a0;
+  if (otherEnd) return !forced;
+  if (mw(m, 0x12) < 0) return true;
+  let cap = ((mw(m, 0x12) + 1) / 5) | 0;
+  if (cap === 0) cap = 1;
+  return oversOf(m, a0) < cap;
+}
+
+/** sub_021534 from the in-match menu: the captain names the bowler of the next over (sub_00B414) */
+export function setNextBowler(m: Ram, idx: number): boolean {
+  if (!canBowl(m, idx, false)) return false;
+  setOtherEnd(m, (m.rl(0xb522) & 0xffff) + REC * idx);
+  return true;
 }
 
 /** sub_00DC2C: the overs of an innings */

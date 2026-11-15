@@ -12,7 +12,7 @@
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { Ram } from "../engine/mem";
-import { Delivery, matchFlow, MatchEvent, MatchResult } from "../engine/match";
+import { Delivery, matchFlow, MatchEvent, MatchResult, canBowl } from "../engine/match";
 import { IGNORE, UI, REPLAY } from "./checkMatchIgnore";
 import { batPad } from "../engine/batsman";
 import { padFrame } from "../engine/pads";
@@ -94,7 +94,7 @@ function compare(kind: "A" | "B", m: Ram, i: number, note: string, skip: [number
 }
 
 let dev: { idx: { pc: number; frame: number }[]; snap: (i: number) => Uint8Array } | null = null;
-let devShown = 0;
+let devShown = 0, fieldShown = 0;
 {
   const a = process.argv.indexOf("--ticks");
   if (a > 0) {
@@ -135,18 +135,25 @@ function playDelivery(m: Ram, F0: number, F1: number): Delivery {
   d.engine.tick = (input) => { n++; tick(input); };
   let k = 0, guard = 0;
   while (!d.done && !d.field && guard++ < 200000) {
-    const f = ticks[Math.min(k, ticks.length - 1)];
+    // after the recording's last tick the original still read the pad once (the check after its frame)
+    // (sub_00ED82's exit, $EDB4 / $EDBA, can come a lag frame later than the tick)
+    const f = k < ticks.length ? ticks[k] : ev.find(([pc, g]) => (pc === 0xedb4 || pc === 0xedba) && g > lastTick)?.[1] ?? lastTick + 1;
     let pressed = 0;
-    if (k < ticks.length) for (let g = lastTick + 1; g <= f; g++) pressed |= padAt(g) & ~padAt(g - 1);
+    for (let g = lastTick + 1; g <= f; g++) pressed |= padAt(g) & ~padAt(g - 1);
+    if (k >= ticks.length) lastTick = f;
     const before = n;
     d.step({ held: padAt(f), pressed: pressed & 0xff });
     if (n > before) { lastTick = f; k += n - before; }
     if (dev && n > before && k < ticks.length) {
       // --ticks WINDOW.bin: exact RAM at every tick's entry (tools/p4/human_window.py)
-      const t = dev.idx.findIndex((h) => h.frame === ticks[k]);
+      const t = dev.idx.findIndex((h) => h.pc === 0xedbc && h.frame === ticks[k]);
       if (t >= 0) {
         const r = diffs(m.buf, dev.snap(t)).filter(([a]) => !(a >= 0xd1b0 && a < 0xd1f0)); // (the aim runs before the tick: one step ahead in the snapshot)
-        if (r.length && devShown++ < 40) console.log(`  tick ${k - 1} (${d.engine.tickPhase}, frame ${f}, pad ${padAt(f).toString(16)}): ${fmt(r)}`);
+        if (process.env.DEVW && k - 1 >= +process.env.DEVW && k - 1 < +process.env.DEVW + 8) {
+          const hx = (u: Uint8Array) => Array.from(u.slice(0xe8fa, 0xe92a), (x) => x.toString(16).padStart(2, "0")).join("").replace(/(.{4})/g, "$1 ");
+          console.log(`  tick ${k - 1} pad ${padAt(f).toString(16)} next ${padAt(ticks[k]).toString(16)}\n   eng ${hx(m.buf)}\n   org ${hx(dev.snap(t))}`);
+        }
+        if (r.length && devShown++ < 900) console.log(`  tick ${k - 1} (${d.engine.tickPhase}, frame ${f}, pad ${padAt(f).toString(16)}): ${fmt(r)}`);
       }
     }
   }
@@ -155,8 +162,19 @@ function playDelivery(m: Ram, F0: number, F1: number): Delivery {
     for (let s = 0; s < steps.length && !d.done; s++) {
       for (let g = (s === 0 ? ctl : steps[s - 1]) + 1; g < steps[s]; g++) padFrame(m, padAt(g));
       d.step({ held: padAt(steps[s]), pressed: 0 });
+      if (dev && s + 1 < steps.length) {
+        // exact RAM at the next step's entry (sub_034A82)
+        const t = dev.idx.findIndex((h) => h.pc === 0x34a82 && h.frame === steps[s + 1]);
+        if (t >= 0) {
+          const r = diffs(m.buf, dev.snap(t)).filter(([a]) => !(a >= 0xc72a && a < 0xc72e) && !(a >= 0x9000 && a < 0x9c00));
+          if (process.env.DEVF) console.log(`  step ${s} f ${steps[s]} pad ${padAt(steps[s]).toString(16)} next f ${steps[s + 1]} pad ${padAt(steps[s + 1]).toString(16)}: c79e eng ${m.rw(0xc79e)} org ${(dev.snap(t)[0xc79e] << 8) | dev.snap(t)[0xc79f]} 8602 ${m.rw(0x8602)}`);
+          if (r.length && fieldShown++ < 10) console.log(`  field step ${s} (frame ${steps[s]}, pad ${padAt(steps[s]).toString(16)}, ${steps[s] - (s ? steps[s - 1] : ctl)} frames): ${fmt(r)}`);
+        }
+      }
     }
-    while (!d.done && guard++ < 300000) d.step({ held: 0, pressed: 0 }); // more steps than the recording has: reported by the comparison
+    // the last step's after-the-frame checks read the pad of the frame after it; more steps than the
+    // recording has are reported by the comparison
+    for (let g = (steps[steps.length - 1] ?? ctl) + 1; !d.done && guard++ < 300000; g++) d.step({ held: g <= F1 ? padAt(g) : 0, pressed: 0 });
   }
   return d;
 }
@@ -186,6 +204,11 @@ for (;;) {
       const at = (p: number) => ((rl(p) & 0xffff) - (rl(0xb522) & 0xffff)) / 0x68;
       answer = at(0xa6be) | (at(0xa6c2) << 8);
     }
+    if (!ev.done && ev.value.kind === "chooseBowler" && i < idx.length) {
+      const r = snap(i), rl = (a: number) => ((r[a] << 24) | (r[a + 1] << 16) | (r[a + 2] << 8) | r[a + 3]) >>> 0;
+      answer = ((rl(0xa6be) & 0xffff) - (rl(0xb522) & 0xffff)) / 0x68;
+      if (!canBowl(m, answer, true)) { console.log(`chooseBowler before snapshot ${i}: the original picked ${answer}, canBowl says no`); process.exitCode = 1; }
+    }
     ev = flow.next(answer);
     if (!ev.done && ev.value.kind === "matchEnd") result = ev.value.result;
     if (!ev.done && ev.value.kind === "rain") {
@@ -206,7 +229,7 @@ for (;;) {
   if (!ev.done && rain) {
     // only the match state is compared across a rain break; then everything continues from the recording
     const r = diffs(m.buf, snap(i)).filter(([a]) => (a >= 0xa6a0 && a < 0xa6c6) || (a >= 0xbe68 && a < 0xbf12) || (a >= 0xc5ba && a < 0xc5cc) || (a >= 0xc5ce && a < 0xc5e6));
-    console.log(`rain break before snapshot ${i}: match state ${r.length ? "DIFFERS " + fmt(r) : "matches"}`);
+    console.log(`rain break before snapshot ${i}: match state ${r.length ? "DIFFERS " + fmt(r) + r.map(([a]) => ` ${(a & ~1).toString(16)}: engine ${m.rw(a & ~1)} original ${(snap(i)[a & ~1] << 8) | snap(i)[(a & ~1) + 1]}`).join(",") : "matches"}`);
     if (r.length) rainBad++;
     resync(m, snap(i));
   } else if (!ev.done) compare("B", m, i, "");
