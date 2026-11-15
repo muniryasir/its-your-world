@@ -12,10 +12,10 @@ export const IGNORE: [number, number][] = [
   [0x86f0, 0x8760], // VBlank task nodes
   [0x87f6, 0x87f8], // fade flag
   [0xbe18, 0xbe1a], // scratch index of the player lookups
-  [0xbf12, 0xbf1e], [0xbf8c, 0xbfb0], // scoreboard text
+  [0xbf12, 0xbf1e], [0xbf8a, 0xbfb0], // scoreboard text
   [0xc8a4, 0xc8b6], [0xcac0, 0xccc0], // pitch overlay display
   [0xd1b4, 0xd1ce], // aim marker corners (display)
-  [0xe8d4, 0xe8e8], [0x7000, 0x70c0], [0xe8ea, 0xe8ee], // scratch of the collision test and the divide helper
+  [0xe8d4, 0xe8e8], [0x7000, 0x7200], [0xe8ea, 0xe8ee], // scratch of the collision test and the divide helper
   [0xe9b0, 0xe9b2], // sound request
   [0xa676, 0xa68e], // the ranked-players list (scratch of sub_00B116; also run by the scorecard screens, sub_034332)
 ];
@@ -27,6 +27,7 @@ export const UI: [number, number][] = [
   [0xc06e, 0xc076], [0xc07e, 0xc080], [0xc0a8, 0xc11a], // scoreboard / banner text state
   [0xc2ec, 0xc35c], // text buffers and layout of the over-end, innings and pitch-report screens
   [0xc614, 0xc618], // pitch report
+  [0xc2c0, 0xc2ca], // bowler menu, the result's text code
   [0xc61e, 0xc6c2], // menu and screen variables
 ];
 /** The run-out replay's close-up (sub_039F0E) re-uses the runners' structs for its flying bails */

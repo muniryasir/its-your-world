@@ -10,7 +10,7 @@ import { Ram, ROM } from "./mem";
 import { Context } from "./context";
 import { ballStep } from "./ball";
 import { bowlerTick, paceMeter } from "./bowler";
-import { fielderHasBall, ballTrack, registerStumps, stumpsAftermath, swapObjectLists, testObjects, hitBatsman, hitStumps } from "./collide";
+import { fielderHasBall, ballTrack, registerStumps, stumpsAftermath, bailsTick, swapObjectLists, testObjects, hitBatsman, hitStumps } from "./collide";
 import { closeFieldersTick, hitFielder, closeFieldersBusy } from "./fielders";
 import { batsmanTick, registerBatsman, contact, bounceAssist, batPad } from "./batsman";
 import {
@@ -348,6 +348,7 @@ export class Engine {
     // sub_048560: the umpire's signal (wide, out ...) raises his arm after three ticks
     if (m.rw(0xe578) !== 0 && m.rw(0xe57e) !== 1 && m.aw(0xe57a, -1) < 0) { m.ww(0xe57a, 1); m.aw(0xe57e, 1); }
     stumpsAftermath(m); // sub_00EE9C -> sub_00EED6
+    bailsTick(m); // sub_00F152
     registerStumps(m);
     // sub_04BA94: a requested ball reset
     if (m.rw(0xe934) !== 0) {

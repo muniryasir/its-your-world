@@ -141,7 +141,8 @@ export class Delivery {
   done: DeliveryEnd | null = null;
   private handedOver = false;
   fieldSteps = 0;
-  constructor(public m: Ram) {
+  /** `hooks`: for checks against the original, whose frames between the views also read the pad */
+  constructor(public m: Ram, private hooks: { beforeField?: () => void; afterField?: () => void } = {}) {
     deliveryPrelude(m);
     this.engine = new Engine(m, contextFromRam(m), { kind: "done", reason: "dead" });
     this.engine.newDelivery();
@@ -170,6 +171,7 @@ export class Delivery {
       // the batting view runs on for a while (sub_00ED82), then sub_04BA84
       this.tailed = true;
       this.engine.tail(reason === "dead" ? (m.rw(0xbeda) !== 0 ? 0x31 : 0x63) : -0x31);
+      this.engine.step({ held: input.held, pressed: 0 }); // its first pass (presses so far are dropped)
       return;
     }
     if (!this.handedOver) {
@@ -182,7 +184,9 @@ export class Delivery {
       fielding: (r) => padPresses(r, r.rw(0xb526)),
       batting: (r) => padPresses(r, r.rw(0xb520)),
     });
+    this.hooks.beforeField?.();
     fv.setup();
+    this.hooks.afterField?.();
     this.field = fv;
   }
   private finish(end: DeliveryEnd): void {
@@ -401,10 +405,11 @@ export type MatchEvent =
   | { kind: "wicket"; how: number; batsman: number }
   | { kind: "overEnd" }
   | { kind: "chooseBowler"; forced: boolean }
+  | { kind: "chooseOpeningBowlers" }
   | { kind: "rain" }
   | { kind: "inningsStart" }
   | { kind: "inningsEnd" }
-  | { kind: "matchEnd" };
+  | { kind: "matchEnd"; result: MatchResult };
 
 /** sub_00DDE2: one over. `resume`: start at a delivery (the RAM is at sub_00E13E's entry). */
 export function* overFlow(m: Ram, resume = false): Generator<MatchEvent, void, number | undefined> {
@@ -627,6 +632,16 @@ export function* matchInnings(m: Ram, resume = false): Generator<MatchEvent, voi
       swapSides(m);
       openers(m); // sub_0203EA: a human captain's batting order is the page's screen
       openingBowlers(m);
+      if (m.rw(0xb526) >= 0) {
+        // sub_0210FE: a human captain names his opening bowlers (answer: first | second << 8, players'
+        // indices in his side); left alone, the two best stay
+        const pick = yield { kind: "chooseOpeningBowlers" };
+        if (pick !== undefined) {
+          m.ww(fielderAt(m, 1) + 6, 0);
+          setBowler(m, fieldRec(m, pick & 0xff));
+          setOtherEnd(m, fieldRec(m, (pick >> 8) & 0xff));
+        }
+      }
       m.ww(0xc11e, 0);
       m.ww(0xdfde, 0); // sub_046856: the computer batsmen's shot histories
       for (let i = 0; i < 32; i += 4) m.wl(0xdfe0 + i, 0);
@@ -651,4 +666,27 @@ export function* matchInnings(m: Ram, resume = false): Generator<MatchEvent, voi
     if (targetPassed(m)) return;
     if (!(m.rw(0xbedc) !== 0 && m.rw(0xbf0a) === 0x334)) m.wl(0xbf0a, l(m.rl(0xbf0a) + 0xa0000));
   }
+}
+
+/** how the match ended, for the side batting last (`batting`) or the side fielding last */
+export interface MatchResult { kind: "runs" | "wickets" | "innings" | "tie" | "draw"; margin: number; winner: "batting" | "fielding" | null }
+
+/** sub_02380E: the result ("England Win By 23 Runs", "... By 7 Wickets", "... By An Innings", "The Match
+ *  Is A Tie", "The Match Is Drawn"). The award of a tied or drawn cup match (fewer wickets lost, or a
+ *  coin) is left out. */
+export function matchResult(m: Ram): MatchResult {
+  const [d4, , d6, d7] = totals(m);
+  if (m.rw(0xc61a) === 0 && d6 !== d4) {
+    if (d4 > d6) return { kind: "runs", margin: w(d4 - d6), winner: "fielding" };
+    if (total(m) !== 0) return { kind: "wickets", margin: 9 - d7, winner: "batting" };
+    return { kind: "innings", margin: 0, winner: "fielding" };
+  }
+  return { kind: m.rw(0xc61a) === 0 ? "tie" : "draw", margin: 0, winner: null };
+}
+
+/** sub_00D960 from its innings loop on: the whole match, then the result */
+export function* matchFlow(m: Ram, resume = false): Generator<MatchEvent, void, number | undefined> {
+  yield* matchInnings(m, resume);
+  if (m.rw(0x86b0) !== 0) return; // abandoned from the menu
+  yield { kind: "matchEnd", result: matchResult(m) };
 }

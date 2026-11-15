@@ -292,6 +292,20 @@ export function stumpsAftermath(m: Ram): void {
   if (ROM.rw(row + 4) !== 0) bail(m, 0xbf56, 0xe, 0, 1, 1);
 }
 
+/** sub_00F1F4 for both bails (from sub_00F152, every tick): a bail flies until it lands */
+export function bailsTick(m: Ram): void {
+  for (const a0 of [0xbf36, 0xbf56]) {
+    if (m.rw(a0) >= 0) continue; // 0: on the stumps, 1: on the ground
+    m.wl(a0 + 0x14, l(m.rl(a0 + 0x14) - 0x3333));
+    const up = l(m.rl(a0 + 6) + m.rl(a0 + 0x14));
+    if (up < 0) { m.ww(a0, 1); m.ww(a0 + 0xe, 0); continue; }
+    m.wl(a0 + 2, l(m.rl(a0 + 2) + m.rl(a0 + 0x10)));
+    m.wl(a0 + 6, up);
+    m.wl(a0 + 0xa, l(m.rl(a0 + 0xa) + m.rl(a0 + 0x18)));
+    m.ww(a0 + 0xe, (m.rw(a0 + 0xe) + 1) & 0x1f);
+  }
+}
+
 /** sub_00F082 / sub_00F0EA: launch a bail (display only, but it draws random numbers) */
 function bail(m: Ram, a0: number, x: number, _: number, vx: number, sign: number): void {
   m.ww(a0, -1);
