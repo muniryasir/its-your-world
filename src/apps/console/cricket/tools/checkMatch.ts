@@ -166,8 +166,8 @@ function playDelivery(m: Ram, F0: number, F1: number): Delivery {
         // exact RAM at the next step's entry (sub_034A82)
         const t = dev.idx.findIndex((h) => h.pc === 0x34a82 && h.frame === steps[s + 1]);
         if (t >= 0) {
-          const r = diffs(m.buf, dev.snap(t)).filter(([a]) => !(a >= 0xc72a && a < 0xc72e) && !(a >= 0x9000 && a < 0x9c00));
-          if (process.env.DEVF) console.log(`  step ${s} f ${steps[s]} pad ${padAt(steps[s]).toString(16)} next f ${steps[s + 1]} pad ${padAt(steps[s + 1]).toString(16)}: c79e eng ${m.rw(0xc79e)} org ${(dev.snap(t)[0xc79e] << 8) | dev.snap(t)[0xc79f]} 8602 ${m.rw(0x8602)}`);
+          const r = diffs(m.buf, dev.snap(t)).filter(([a]) => !(a >= 0xc72a && a < 0xc72e) && !(a >= 0x9000 && a < 0x9c00) && !(a >= 0xc79e && a < 0xc7a0));
+          if (process.env.DEVF) { const o = dev.snap(t), ow = (a: number) => ((o[a] << 8) | o[a + 1]).toString(16); console.log(`  step ${s} f ${steps[s]}: ${process.env.DEVF.split(",").map((x) => `${x} eng ${m.rw(parseInt(x, 16)).toString(16)} org ${ow(parseInt(x, 16))}`).join("  ")}`); }
           if (r.length && fieldShown++ < 10) console.log(`  field step ${s} (frame ${steps[s]}, pad ${padAt(steps[s]).toString(16)}, ${steps[s] - (s ? steps[s - 1] : ctl)} frames): ${fmt(r)}`);
         }
       }

@@ -9,7 +9,10 @@ import { gzipSync } from "node:zlib";
 import { IGNORE } from "./checkMatchIgnore";
 
 const [file, out] = process.argv.slice(2);
-const idx = JSON.parse(readFileSync(file.replace(/\.bin$/, ".json"), "utf8"));
+const meta = JSON.parse(readFileSync(file.replace(/\.bin$/, ".json"), "utf8"));
+// a session with pad input (tools/p4/human_rec.py) also has the frames of every tick / fielding step and the pads
+const idx = Array.isArray(meta) ? meta : meta.idx;
+const input = Array.isArray(meta) ? {} : { light: meta.light, pads: meta.pads, frame0: meta.frame0 };
 const all = readFileSync(file);
 const snap = (i: number) => all.subarray(i * 0x10000, (i + 1) * 0x10000);
 const ign = new Uint8Array(0x10000);
@@ -31,6 +34,6 @@ for (let i = 1; i < idx.length; i++) {
   deltas.push(d);
 }
 mkdirSync(dirname(out), { recursive: true });
-const gz = gzipSync(JSON.stringify({ idx, first: b64(first), deltas }), { level: 9 });
+const gz = gzipSync(JSON.stringify({ idx, first: b64(first), deltas, ...input }), { level: 9 });
 writeFileSync(out, gz);
 console.log(`${idx.length} snapshots -> ${out} (${gz.length} bytes)`);

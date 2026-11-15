@@ -494,7 +494,7 @@ function catchIt(m: Ram, a0: number): void {
   else if (is(m, 0xc776, a0)) d0 = 3;
   setPlay(m, d0);
   m.wb(0xfd0c, -1);
-  if (m.rw(0x8606) === 0 || m.rw(0xe580) === 0) throwArrows(m);
+  if (m.rw(0x8606) === 0 || m.rw(0xe580) !== 0) throwArrows(m);
 }
 
 /** sub_036A78: the human's throw-target arrows ($FD0E) */
