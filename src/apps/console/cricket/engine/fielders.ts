@@ -458,5 +458,8 @@ export function hitFielder(m: Ram, entry: number, obj: number): void {
     for (const g of fielderPtrs(m)) standDown(m, g); // sub_047672
     return;
   }
-  deflect(m, entry, obj);
+  // $047C66: the surface is the sprite this fielder registered last (+$A), not the list entry that was
+  // hit: a mirrored fielder registers twice, and the last one is the unmirrored frame
+  void entry;
+  deflect(m, m.rl(obj + 0xa) & 0xffff, obj);
 }

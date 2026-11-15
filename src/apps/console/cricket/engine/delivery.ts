@@ -338,7 +338,7 @@ export function paceInit(m: Ram): void {
   m.wl(a0 + 8, l(((0x100 * 0xc000) >>> 8) + 0x2000));
   m.wl(a0 + 0xc, l(((0x100 * 0xc000) >>> 8) + 0x2000));
   m.ww(a0 + 2, m.rw(0xb526));
-  for (let i = 0; i < 8; i++) m.ww(a0 + 0x1a + 2 * i, 0x7fff);
+  for (let i = 0; i < 16; i++) m.ww(a0 + 0x1a + 2 * i, 0x7fff);
   m.ww(a0, -1);
   m.ww(0xe950, 3);
   m.ww(0xe95c, 0x28);

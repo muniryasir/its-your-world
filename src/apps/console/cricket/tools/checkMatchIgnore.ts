@@ -18,6 +18,7 @@ export const IGNORE: [number, number][] = [
   [0xe8d4, 0xe8e8], [0x7000, 0x7200], [0xe8ea, 0xe8ee], // scratch of the collision test and the divide helper
   [0xe9b0, 0xe9b2], // sound request
   [0xe96c, 0xe970], // the celebration's display object (allocated)
+  [0xc068, 0xc06c], [0xc89e, 0xc8a2], [0xc7f8, 0xc7fc], [0xe960, 0xe966], [0xe96a, 0xe96c], // display objects' pointers (scoreboard, map panel, overlay, marker) and a tile base
   [0x69c4, 0x6a00], // text buffer of the bowler menu
   [0xa676, 0xa68e], // the ranked-players list (scratch of sub_00B116; also run by the scorecard screens, sub_034332)
 ];
@@ -27,7 +28,8 @@ export const IGNORE: [number, number][] = [
  *  the recording either: if the engine did depend on one of them, later comparisons would fail. */
 export const UI: [number, number][] = [
   [0xc06e, 0xc078], [0xc07e, 0xc080], [0xc0a8, 0xc11a], // scoreboard / banner text state
-  [0xc2ec, 0xc35c], // text buffers and layout of the over-end, innings and pitch-report screens
+  [0xc27a, 0xc2c0], // the batting-order screen's list (sub_0203EA)
+  [0xc2ec, 0xc364], // text buffers, layout and objects of the over-end, innings and pitch-report screens
   [0xc614, 0xc618], // pitch report
   [0xc2c0, 0xc2ca], // bowler menu, the result's text code
   [0xc61e, 0xc6c2], // menu and screen variables

@@ -148,7 +148,11 @@ function playDelivery(m: Ram, F0: number, F1: number): Delivery {
       // --ticks WINDOW.bin: exact RAM at every tick's entry (tools/p4/human_window.py)
       const t = dev.idx.findIndex((h) => h.pc === 0xedbc && h.frame === ticks[k]);
       if (t >= 0) {
-        const r = diffs(m.buf, dev.snap(t)).filter(([a]) => !(a >= 0xd1b0 && a < 0xd1f0)); // (the aim runs before the tick: one step ahead in the snapshot)
+        const r = diffs(m.buf, dev.snap(t)).filter(([a]) => !(a >= 0xd150 && a < 0xd1f0)); // (the aim runs before the tick: one step ahead in the snapshot)
+        if (process.env.DEVT && k - 1 >= +(process.env.DEVT0 ?? 0) && k - 1 < +(process.env.DEVT0 ?? 0) + 10) {
+          const o = dev.snap(t), ow = (a: number) => ((o[a] << 8) | o[a + 1]).toString(16);
+          console.log(`  t ${k - 1} ${d.engine.tickPhase} pad ${padAt(f).toString(16)}: ${process.env.DEVT.split(",").map((x) => `${x} ${(m.rw(parseInt(x, 16)) & 0xffff).toString(16)}/${ow(parseInt(x, 16))}`).join("  ")}`);
+        }
         if (process.env.DEVW && k - 1 >= +process.env.DEVW && k - 1 < +process.env.DEVW + 8) {
           const hx = (u: Uint8Array) => Array.from(u.slice(0xe8fa, 0xe92a), (x) => x.toString(16).padStart(2, "0")).join("").replace(/(.{4})/g, "$1 ");
           console.log(`  tick ${k - 1} pad ${padAt(f).toString(16)} next ${padAt(ticks[k]).toString(16)}\n   eng ${hx(m.buf)}\n   org ${hx(dev.snap(t))}`);
