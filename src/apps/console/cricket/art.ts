@@ -14,7 +14,8 @@ import groundBat from "./art/field-ground-bat.png";
 import groundBowl from "./art/field-ground-bowl.png";
 import fieldIdx from "./art/field-sprites-idx.png";
 import overlay from "./art/field-overlay.png";
-import { FIXED_COLOURS } from "./art/atlas";
+import runoutIdx from "./art/runout-idx.png";
+import { FIXED_COLOURS, RUNOUT } from "./art/atlas";
 import { TEAM_DATA } from "./engine/teamData";
 import type { Ram } from "./engine/mem";
 
@@ -31,6 +32,8 @@ export interface Art {
   /** the sprite atlases (batting view, fielding view) in the colours of the side batting and the side
    *  fielding, white or coloured kits */
   sheets(bat: number, field: number, coloured: boolean): Sheets;
+  /** the run-out close-up's frames (atlas RUNOUT) in the two teams' colours */
+  runout(bat: number, field: number, coloured: boolean): HTMLCanvasElement;
 }
 
 /** a Mega Drive colour word (0000 BBB0 GGG0 RRR0) as the VDP shows it */
@@ -58,11 +61,12 @@ function indices(im: HTMLImageElement): ImageData {
   return ctx.getImageData(0, 0, im.width, im.height);
 }
 
-function colour(idx: ImageData, bat: number, field: number, coloured: boolean): HTMLCanvasElement {
+function colour(idx: ImageData, bat: number, field: number, coloured: boolean, closeUp = false): HTMLCanvasElement {
   const pal = new Array<[number, number, number] | null>(64).fill(null);
   const pb = TEAM_DATA[bat].palettes[coloured ? 2 : 0], pf = TEAM_DATA[field].palettes[coloured ? 3 : 1];
   for (let k = 0; k < 16; k++) { pal[16 + k] = rgb(pb[k]); pal[32 + k] = rgb(pf[k]); }
-  for (const [k, v] of Object.entries(FIXED_COLOURS)) pal[+k] = v;
+  if (closeUp) for (let k = 0; k < 16; k++) { pal[k] = rgb(RUNOUT.line0[k]); pal[48 + k] = rgb(RUNOUT.line3[k]); }
+  else for (const [k, v] of Object.entries(FIXED_COLOURS)) pal[+k] = v;
   const c = document.createElement("canvas");
   c.width = idx.width; c.height = idx.height;
   const ctx = c.getContext("2d")!;
@@ -70,8 +74,8 @@ function colour(idx: ImageData, bat: number, field: number, coloured: boolean): 
   const s = idx.data, d = out.data;
   for (let i = 0; i < s.length; i += 4) {
     const v = s[i];
-    if (v === 0 || (v & 15) === 0 || s[i + 3] === 0) continue;
-    const p = pal[v];
+    if (!closeUp && (v === 0 || (v & 15) === 0 || s[i + 3] === 0)) continue;
+    const p = closeUp && (v & 15) === 0 ? pal[0] : pal[v];
     if (!p) continue;
     d[i] = p[0]; d[i + 1] = p[1]; d[i + 2] = p[2]; d[i + 3] = 255;
   }
@@ -89,9 +93,10 @@ export function getArt(): Art | null {
     im.onerror = fail;
     im.src = src;
   });
-  Promise.all([bgBat, bgBowl, fgBat, fgBowl, spritesIdx, staticLayer, needles, groundBat, groundBowl, fieldIdx, overlay].map(load))
-    .then(([bga, bgb, fga, fgb, sidx, st, nd, gba, gbo, fidx, ov]) => {
-      const si = indices(sidx), fi = indices(fidx);
+  Promise.all([bgBat, bgBowl, fgBat, fgBowl, spritesIdx, staticLayer, needles, groundBat, groundBowl, fieldIdx, overlay, runoutIdx].map(load))
+    .then(([bga, bgb, fga, fgb, sidx, st, nd, gba, gbo, fidx, ov, ridx]) => {
+      const si = indices(sidx), fi = indices(fidx), ri = indices(ridx);
+      const roCache = new Map<string, HTMLCanvasElement>();
       const cache = new Map<string, Sheets>();
       art = {
         bg: { bat: bga, bowl: bgb }, fg: { bat: fga, bowl: fgb }, staticLayer: st, needles: nd,
@@ -101,6 +106,12 @@ export function getArt(): Art | null {
           let s = cache.get(key);
           if (!s) { s = { sprites: colour(si, bat, field, coloured), field: colour(fi, bat, field, coloured) }; cache.set(key, s); }
           return s;
+        },
+        runout(bat, field, coloured) {
+          const key = `${bat}:${field}:${coloured ? 1 : 0}`;
+          let c = roCache.get(key);
+          if (!c) { c = colour(ri, bat, field, coloured, true); roCache.set(key, c); }
+          return c;
         },
       };
     })

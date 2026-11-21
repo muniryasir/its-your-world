@@ -212,6 +212,7 @@ for (;;) {
   i++;
   if (i >= idx.length || idx[i].pc !== 0xde7a) { console.log(`recording: no delivery return at ${i}`); break; }
   const replay = d.field?.label === "retEnd";
+  if (replay && process.env.SHOWREPLAY) console.log(`replay at delivery ${i} frames ${idx[i - 1].frame}..${idx[i].frame} out ${m.rw(0xbee2)}`);
   compare("A", m, i, `${d.done?.reason} field ${d.fieldSteps}${replay ? " replay" : ""}`, replay ? REPLAY : []);
   i++;
   let rain = false;

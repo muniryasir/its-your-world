@@ -222,3 +222,11 @@
   grid-area: 1 / 1; align-self: start; justify-self: center; margin: 12px; padding: 8px 14px; border-radius: 999px;
   background: rgba(12, 14, 46, 0.85); border: 1px solid var(--cc-line); font: 700 0.95rem var(--cc-cosmic); color: var(--cc-sun);
 }
+.cc-m-replay { position: absolute; inset: 0; background: rgba(7, 8, 26, 0.35); }
+.cc-m-replay canvas { position: absolute; image-rendering: pixelated; border: 2px solid #d8d8ff; }
+.cc-m-replay-text {
+  position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%); margin: 0; padding: 8px 16px; border-radius: 999px;
+  background: rgba(12, 14, 46, 0.9); border: 1px solid var(--cc-line); font: 800 1.1rem var(--cc-cosmic); color: var(--cc-teal);
+  animation: cc-pop 180ms ease-out 2.4s both;
+}
+.cc-m-replay-text.out { color: var(--cc-pink); }

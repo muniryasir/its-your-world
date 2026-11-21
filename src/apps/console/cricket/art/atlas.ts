@@ -627,3 +627,7 @@ export const FIXED_COLOURS: Record<number, [number, number, number]> = {
   60: [146, 146, 146],
   63: [0, 0, 0],
 };
+
+/** the run-out close-up (sub_039F0E; runout-idx.png: 128 frames of 160 x 115 side by side, palette
+ *  indices; lines 1 and 2 are the batting and fielding teams', lines 0 and 3 these colour words) */
+export const RUNOUT = { x: 80, y: 32, w: 160, h: 115, frames: 128, line0: [0, 3822, 3276, 2730, 2184, 584, 38, 2112, 3174, 0, 2604, 2604, 1162, 2220, 646, 102], line3: [0, 3822, 2222, 1676, 1130, 70, 12, 8, 2112, 3174, 3276, 2730, 2184, 136, 132, 128] } as const;

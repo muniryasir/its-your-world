@@ -285,7 +285,12 @@ export class MatchGame {
     if (last && last[0] === v) last[1]++; else this.log.pads.push([v, 1]);
     this.steps++;
     d.step(input);
-    if (d.done) { this.endDelivery(); this.pump(undefined); }
+    if (d.done) {
+      // the run-out close-up (sub_039F0E) ends a ball that came back to the stumps with the batsmen running
+      if (d.field?.label === "retEnd") this.news.push({ kind: "replay", out: this.m.rw(0xbee2) === 5 });
+      this.endDelivery();
+      this.pump(undefined);
+    }
   }
 
   /** the human captain declares: the innings ends with the over in progress (unlimited overs only) */

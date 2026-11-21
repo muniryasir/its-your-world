@@ -14,6 +14,8 @@ import type { View } from "./engine/practice";
 import { drawScene, SCREEN_W, SCREEN_H } from "./render";
 import { TouchPad } from "./Nets";
 import rainCovers from "./art/rain-covers.png";
+import { getArt, matchColours } from "./art";
+import { RUNOUT } from "./art/atlas";
 
 const TICK_MS = 1000 / 50;
 const LIVE_TICK_MS = 1000 / 41;
@@ -26,6 +28,7 @@ const KEYS: Record<string, number> = {
   ArrowUp: PAD.U, ArrowDown: PAD.D, ArrowLeft: PAD.L, ArrowRight: PAD.R, KeyZ: PAD.A, KeyX: PAD.B, KeyC: PAD.C,
 };
 const RAIN_MS = 7000;
+const REPLAY_MS = 3800;
 const NAMES: readonly string[] = TEAM_NAMES.map((n) => (n === "All Time Xi" ? "All Time XI" : n));
 const OVERS = [10, 20, 40, 50, 55, 60, 90, 0];
 
@@ -205,6 +208,7 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
   const [auto, setAuto] = useState(g.auto);
   const [quick, setQuick] = useState(false);
   const [rain, setRain] = useState<{ from: number; to: number; at: number } | null>(null);
+  const [replay, setReplay] = useState<{ out: boolean; at: number; colours: [number, number, boolean] } | null>(null);
   const [hud, setHud] = useState<Hud>(() => readHud(g, g.balls === 0 ? conditionsBanner(g) : null, []));
 
   const press = useCallback((bits: number) => { pressedRef.current |= bits & ~heldRef.current; heldRef.current |= bits; }, []);
@@ -234,6 +238,10 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
         if (!banner) { banner = b; hold = 700; }
       } else if (b) { banner = b; hold = Math.max(hold, e.kind === "wicket" || e.kind === "overEnd" ? 1500 : 2600); }
       if (e.kind === "overEnd" || e.kind === "inningsStart") overBalls.current = [];
+      if (e.kind === "replay" && !quickMode && getArt()) {
+        setReplay({ out: e.out, at: now, colours: matchColours(g.m) });
+        hold = Math.max(hold, REPLAY_MS);
+      }
       if (e.kind === "rain" && !quickMode) {
         // the clock has moved on already (rainScene): the scene shows it running from the break
         const to = g.m.rl(0xbf0a) / 65536;
@@ -340,7 +348,8 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
             </div>
           )}
           {rain && !quick && <RainScene rain={rain} onDone={() => setRain(null)} />}
-          {banner && !quick && !result && !rain && (
+          {replay && !quick && !rain && <ReplayScene replay={replay} onDone={() => setReplay(null)} />}
+          {banner && !quick && !result && !rain && !replay && (
             <div className={`cc-result cc-m-banner cc-m-banner--${banner.tone}`} role="status">
               <span className="cc-result-text">{banner.text}</span>
               {banner.sub && <span className="cc-muted">{banner.sub}</span>}
@@ -505,6 +514,33 @@ function resultText(g: MatchGame, r: MatchResult): string {
   const winner = r.winner === "batting" ? last : first;
   if (r.kind === "innings") return `${NAMES[winner]} win by an innings`;
   return `${NAMES[winner]} win by ${r.margin} ${r.kind === "runs" ? "run" : "wicket"}${r.margin === 1 ? "" : "s"}`;
+}
+
+/** the original's run-out close-up (sub_039F0E): the keeper, the stumps, the bails flying, the bat
+ *  coming in (frames captured from the original, in the two teams' colours), then the verdict */
+function ReplayScene({ replay, onDone }: { replay: { out: boolean; at: number; colours: [number, number, boolean] }; onDone: () => void }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const art = getArt();
+    let raf = 0;
+    const draw = (now: number) => {
+      const c = ref.current;
+      if (!c || !art) return;
+      const ctx = c.getContext("2d")!;
+      ctx.imageSmoothingEnabled = false;
+      const k = Math.min(RUNOUT.frames - 1, Math.floor(((now - replay.at) / 1000) * 50));
+      ctx.drawImage(art.runout(...replay.colours), k * RUNOUT.w, 0, RUNOUT.w, RUNOUT.h, 0, 0, RUNOUT.w, RUNOUT.h);
+      if (now - replay.at < REPLAY_MS) raf = requestAnimationFrame(draw); else onDone();
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [replay, onDone]);
+  return (
+    <div className="cc-m-replay" role="status" aria-label="Run-out replay">
+      <canvas ref={ref} width={RUNOUT.w} height={RUNOUT.h} style={{ left: `${(RUNOUT.x / 320) * 100}%`, top: `${(RUNOUT.y / 224) * 100}%`, width: `${(RUNOUT.w / 320) * 100}%` }} />
+      <p className={`cc-m-replay-text${replay.out ? " out" : ""}`}>{replay.out ? "Run out!" : "Not out"}</p>
+    </div>
+  );
 }
 
 /** the original's rain break: the covers on the ground (its background, from the emulator), the rain, and
