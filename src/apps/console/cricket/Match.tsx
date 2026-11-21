@@ -351,11 +351,7 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
           {rain && !quick && <RainScene rain={rain} onDone={() => setRain(null)} />}
           {replay && !quick && !rain && <ReplayScene replay={replay} onDone={() => setReplay(null)} />}
           {banner && !quick && !result && !rain && !replay && (
-            getArt() ? <BannerBox banner={banner} /> : (
-            <div className={`cc-result cc-m-banner cc-m-banner--${banner.tone}`} role="status">
-              <span className="cc-result-text">{banner.text}</span>
-              {banner.sub && <span className="cc-muted">{banner.sub}</span>}
-            </div>)
+            <BannerBox banner={banner} />
           )}
           {result && (
             <div className="cc-overlay">
@@ -521,13 +517,25 @@ function resultText(g: MatchGame, r: MatchResult): string {
 /** a banner in the original's look (phase 6 part F1): drawn on a small canvas over the game screen */
 function BannerBox({ banner }: { banner: Banner }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const [ready, setReady] = useState(() => !!getArt());
+  useEffect(() => {
+    if (ready) return;
+    const t = setInterval(() => { if (getArt()) setReady(true); }, 100); // the art is still loading
+    return () => clearInterval(t);
+  }, [ready]);
   useEffect(() => {
     const c = ref.current, art = getArt();
     if (!c || !art) return;
     const ctx = c.getContext("2d")!;
     ctx.imageSmoothingEnabled = false;
     drawBanner(ctx, art.hud, banner.text, banner.sub);
-  }, [banner]);
+  }, [banner, ready]);
+  if (!ready) return (
+    <div className={`cc-result cc-m-banner cc-m-banner--${banner.tone}`} role="status">
+      <span className="cc-result-text">{banner.text}</span>
+      {banner.sub && <span className="cc-muted">{banner.sub}</span>}
+    </div>
+  );
   return (
     <div className={`cc-m-bannerbox${banner.tone === "big" ? " big" : ""}`} role="status" aria-label={banner.sub ? `${banner.text}. ${banner.sub}` : banner.text}>
       <canvas ref={ref} width={208} height={48} />
