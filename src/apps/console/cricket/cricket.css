@@ -208,3 +208,10 @@
 .cc-m-cardbody td:nth-child(n + 3), .cc-m-cardbody th:nth-child(n + 3) { text-align: right; }
 .cc-m-totalrow td { font-weight: 700; }
 @media (max-width: 520px) { .cc-m-cardbody td:nth-child(2) { display: none; } }
+.cc-m-teams { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
+.cc-m-select { display: grid; gap: 6px; font-size: 0.78rem; color: var(--cc-muted); }
+.cc-m-select select {
+  appearance: none; min-width: 190px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--cc-line);
+  background: rgba(12, 14, 46, 0.7); color: var(--cc-ink); font: 700 1rem var(--cc-cosmic); letter-spacing: -0.02em;
+}
+.cc-m-v { font: 700 1rem var(--cc-cosmic); color: var(--cc-muted); padding-bottom: 10px; }

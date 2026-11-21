@@ -1,13 +1,16 @@
 // Smoke test of the match layer: plays whole matches with the engine alone (no recording) and prints
 // the scorecards. The pad is empty or random; questions get the first candidate.
 // usage: npx tsx tools/playMatch.ts [seed] [human: england|australia|none] [overs] [random] [days] [innings a side]
-import { MatchGame, DEFAULT_MATCH, scorecard, Team } from "../engine/matchGame";
+import { MatchGame, DEFAULT_MATCH, scorecard, TEAM_NAMES } from "../engine/matchGame";
 const seed = +(process.argv[2] ?? 1);
-const human = (process.argv[3] ?? "none") === "none" ? null : (process.argv[3] as Team);
+// human: a team's name or index (England v Australia unless TEAMS="a,b" gives the two sides' indices)
+const team = (x: string) => { const k = TEAM_NAMES.findIndex((n) => n.toLowerCase() === x.toLowerCase()); return k >= 0 ? k : +x; };
+const human = (process.argv[3] ?? "none") === "none" ? null : team(process.argv[3]);
+const teams = (process.env.TEAMS ?? "0,1").split(",").map(Number) as [number, number];
 const overs = +(process.argv[4] ?? 10);
 const random = process.argv[5] === "random";
 const days = +(process.argv[6] ?? 1), innings = (+(process.argv[7] ?? 1) === 2 ? 2 : 1) as 1 | 2;
-const g = new MatchGame({ ...DEFAULT_MATCH, human, overs, seed, days, innings });
+const g = new MatchGame({ ...DEFAULT_MATCH, human, overs, seed, days, innings, teams, batFirst: teams[0] });
 let r = seed * 7919 + 1, held = 0, n = 0;
 while (!g.over && n < 40_000_000) {
   if (g.question) { const q = g.question; g.answer(q.kind === "chooseBowler" ? q.candidates[0] : q.kind === "followOn" ? (console.log("  follow-on offered: enforced"), 1) : undefined); continue; }
@@ -28,7 +31,7 @@ while (!g.over && n < 40_000_000) {
   g.news.length = 0;
 }
 for (const c of g.innings) {
-  console.log(`${c.team}: ${c.total}/${c.wickets} (${c.overs} overs)  extras w ${c.extras.wides} lb ${c.extras.legByes} b ${c.extras.byes}  fow ${c.fallOfWickets.join(" ")}`);
+  console.log(`${TEAM_NAMES[c.team]}: ${c.total}/${c.wickets} (${c.overs} overs)  extras w ${c.extras.wides} lb ${c.extras.legByes} b ${c.extras.byes}  fow ${c.fallOfWickets.join(" ")}`);
   for (const b of c.batting) if (b.how !== "dnb") console.log(`   ${b.name.padEnd(14)} ${b.how.padEnd(8)} ${(b.bowler ?? "").padEnd(14)} ${String(b.runs).padStart(3)} (${b.balls})`);
   for (const b of c.bowling) console.log(`   > ${b.name.padEnd(14)} ${b.overs}-${b.maidens}-${b.runs}-${b.wickets}`);
 }

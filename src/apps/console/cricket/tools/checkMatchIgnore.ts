@@ -27,7 +27,7 @@ export const IGNORE: [number, number][] = [
  *  position) that the engine never reads. Not compared, and the engine's bytes are never refreshed from
  *  the recording either: if the engine did depend on one of them, later comparisons would fail. */
 export const UI: [number, number][] = [
-  [0xc06e, 0xc078], [0xc07e, 0xc080], [0xc0a8, 0xc11a], // scoreboard / banner text state
+  [0xc06e, 0xc07a], [0xc07e, 0xc080], [0xc0a8, 0xc11a], // scoreboard / banner text state (a long name runs on to $C079)
   [0xc27a, 0xc2c0], // the batting-order screen's list (sub_0203EA)
   [0xc2ec, 0xc364], // text buffers, layout and objects of the over-end, innings and pitch-report screens
   [0xc614, 0xc618], // pitch report

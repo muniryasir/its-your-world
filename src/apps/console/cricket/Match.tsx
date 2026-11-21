@@ -4,7 +4,7 @@
 // playing on), the pause menu (scorecard, declare, change bowler, auto play, abandon) and the match kept
 // in the browser. No Wasp imports here, like Nets.tsx.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MatchGame, DEFAULT_MATCH, scorecard, playerName } from "./engine/matchGame";
+import { MatchGame, DEFAULT_MATCH, scorecard, playerName, TEAM_NAMES } from "./engine/matchGame";
 import type { MatchSettings, SavedMatch, Team, InningsCard, Question } from "./engine/matchGame";
 import { MATCH, inningsNo } from "./engine/match";
 import type { MatchEvent, MatchResult } from "./engine/match";
@@ -19,11 +19,11 @@ const SCALE = 3;
 /** the computer's set-up (aim, meters) runs this many ticks per tick time, as in the nets */
 const SETUP_SPEED = 4;
 const SETUP_PHASES = new Set(["preaim", "aim", "settle", "swing", "meterWait", "meterA", "meterB", "meterC", "paceWait"]);
-const STORE = "cc-match-v1";
+const STORE = "cc-match-v2";
 const KEYS: Record<string, number> = {
   ArrowUp: PAD.U, ArrowDown: PAD.D, ArrowLeft: PAD.L, ArrowRight: PAD.R, KeyZ: PAD.A, KeyX: PAD.B, KeyC: PAD.C,
 };
-const NAMES: Record<Team, string> = { england: "England", australia: "Australia" };
+const NAMES: readonly string[] = TEAM_NAMES.map((n) => (n === "All Time Xi" ? "All Time XI" : n));
 const OVERS = [10, 20, 40, 50, 55, 60, 90, 0];
 
 /** `?cc-match-demo` (screenshots): the computer plays your side; `?cc-seed=N` fixes the random sequence */
@@ -65,8 +65,9 @@ export function Match() {
 // ---------------------------------------------------------------- setup
 
 function Setup({ saved, onStart, onResume, onDiscard, seed }: { saved: SavedMatch | null; onStart: (s: MatchSettings) => void; onResume: () => void; onDiscard: () => void; seed?: number }) {
-  const [side, setSide] = useState<Team | "watch">("england");
-  const [batFirst, setBatFirst] = useState<Team>("england");
+  const [teams, setTeams] = useState<[Team, Team]>([0, 1]);
+  const [side, setSide] = useState<0 | 1 | "watch">(0);
+  const [batFirst, setBatFirst] = useState<0 | 1>(0);
   const [overs, setOvers] = useState(10);
   const [days, setDays] = useState(1);
   const [innings, setInnings] = useState<1 | 2>(1);
@@ -84,6 +85,20 @@ function Setup({ saved, onStart, onResume, onDiscard, seed }: { saved: SavedMatc
       ))}
     </fieldset>
   );
+  const pickTeam = (k: 0 | 1, t: Team) => {
+    const next: [Team, Team] = [...teams] as [Team, Team];
+    next[k] = t;
+    if (next[0] === next[1]) next[1 - k] = teams[k]; // the same team twice: swap them
+    setTeams(next);
+  };
+  const teamSelect = (k: 0 | 1, label: string) => (
+    <label className="cc-m-select">
+      <span>{label}</span>
+      <select value={teams[k]} onChange={(e) => pickTeam(k, Number(e.target.value))}>
+        {NAMES.map((n, t) => <option key={t} value={t}>{n}</option>)}
+      </select>
+    </label>
+  );
   return (
     <div className="cc-m-setup">
       {saved && (
@@ -97,11 +112,12 @@ function Setup({ saved, onStart, onResume, onDiscard, seed }: { saved: SavedMatc
         </section>
       )}
       <section className="cc-panel">
-        <h2>New match: England v Australia</h2>
-        <p className="cc-muted">All the original game's match settings. A one-day match of 10 overs a side takes about 20 minutes; with unlimited overs it's a Test, with a clock, lunch, tea and close of play.</p>
+        <h2>New match: {NAMES[teams[0]]} v {NAMES[teams[1]]}</h2>
+        <p className="cc-muted">The original's 13 teams of an international match, with their players and ratings, and all its match settings. A one-day match of 10 overs a side takes about 20 minutes; with unlimited overs it's a Test, with a clock, lunch, tea and close of play.</p>
+        <div className="cc-m-teams">{teamSelect(0, "First team")}<span className="cc-m-v">v</span>{teamSelect(1, "Second team")}</div>
         <div className="cc-m-grid">
-          {seg("cc-side", "You play", side, setSide, [["england", "England"], ["australia", "Australia"], ["watch", "Watch the computer"]])}
-          {seg("cc-first", "Batting first", batFirst, setBatFirst, [["england", "England"], ["australia", "Australia"]])}
+          {seg("cc-side", "You play", side, setSide, [[0, NAMES[teams[0]]], [1, NAMES[teams[1]]], ["watch", "Watch the computer"]])}
+          {seg("cc-first", "Batting first", batFirst, setBatFirst, [[0, NAMES[teams[0]]], [1, NAMES[teams[1]]]])}
           {seg("cc-overs", "Overs a side", overs, setOvers, OVERS.map((o) => [o, o ? String(o) : "Unlimited"] as [number, string]))}
           {seg("cc-days", "Period", days, setDays, [1, 2, 3, 4, 5].map((d) => [d, `${d} day${d > 1 ? "s" : ""}`] as [number, string]))}
           {seg("cc-inn", "Innings", innings, setInnings, [[1, "1 each"], [2, "2 each"]])}
@@ -116,7 +132,7 @@ function Setup({ saved, onStart, onResume, onDiscard, seed }: { saved: SavedMatc
         {!test && innings === 2 && <p className="cc-small">Two innings each with a limit of overs: as the original allows it.</p>}
         <div className="cc-actions">
           <button className="cc-btn cc-btn--primary" onClick={() => onStart({
-            ...DEFAULT_MATCH, human: side === "watch" ? null : side, batFirst, overs, days, innings, coloured, difficulty, humanField,
+            ...DEFAULT_MATCH, teams, human: side === "watch" ? null : teams[side], batFirst: teams[batFirst], overs, days, innings, coloured, difficulty, humanField,
             seed: seed ?? ((Date.now() & 0xffff) || 1),
           })}>Start the match</button>
         </div>
@@ -128,7 +144,8 @@ function Setup({ saved, onStart, onResume, onDiscard, seed }: { saved: SavedMatc
 function savedLine(s: SavedMatch): string {
   const st = s.settings;
   const kind = st.overs ? `${st.overs} overs a side` : `${st.days ?? 1}-day Test`;
-  const who = st.human ? `you play ${NAMES[st.human]}` : "watching";
+  const [a, b] = st.teams ?? [0, 1];
+  const who = `${NAMES[a]} v ${NAMES[b]}, ${st.human !== null ? `you play ${NAMES[st.human]}` : "watching"}`;
   const done = s.innings.map((c) => `${NAMES[c.team]} ${c.total}/${c.wickets}`).join(", ");
   return `${kind}, ${who}${done ? ` · ${done}` : ""} · ${s.balls} balls bowled`;
 }
@@ -251,7 +268,7 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
   }, [g, paused, menu, quick, settle]);
 
   const toggleAuto = () => { g.auto = !g.auto; setAuto(g.auto); };
-  const humanSide = g.settings.human;
+  const humanSide = g.settings.human !== null && g.settings.human !== undefined;
   const canDeclare = !!humanSide && g.m.rw(MATCH + 0x12) < 0 && g.m.rw(0xb520) >= 0 && !g.over;
   const canChange = !!humanSide && g.m.rw(0xb526) >= 0 && !g.over;
   const { card, banner, question, result } = hud;
@@ -338,7 +355,7 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
       <aside className="cc-side">
         <section className="cc-panel">
           <h2>{g.settings.overs ? `${g.settings.overs} overs a side` : `${g.settings.days ?? 1}-day Test`}</h2>
-          <p className="cc-muted">England v Australia · {g.settings.innings === 2 ? "two innings each" : "one innings each"} · {g.settings.coloured ? "coloured kits" : "whites"} · {["easy", "normal", "hard"][g.settings.difficulty]}</p>
+          <p className="cc-muted">{NAMES[(g.settings.teams ?? [0, 1])[0]]} v {NAMES[(g.settings.teams ?? [0, 1])[1]]} · {g.settings.innings === 2 ? "two innings each" : "one innings each"} · {g.settings.coloured ? "coloured kits" : "whites"} · {["easy", "normal", "hard"][g.settings.difficulty]}</p>
           <p className="cc-muted">The match is kept in this browser after every ball.</p>
         </section>
         <section className="cc-panel">
@@ -382,7 +399,8 @@ function readHud(g: MatchGame, banner: Banner | null, ballsInOver: number[]): Hu
 function statusLine(g: MatchGame, card: InningsCard): string {
   const m = g.m, inn = inningsNo(m), last = m.rw(MATCH + 0x14);
   const runs = (t: Team) => g.innings.filter((c) => c.team === t).reduce((a, c) => a + c.total, 0) + (card.team === t ? card.total : 0);
-  const other: Team = card.team === "england" ? "australia" : "england";
+  const [ta, tb] = g.settings.teams ?? [0, 1];
+  const other: Team = card.team === ta ? tb : ta;
   const diff = runs(card.team) - runs(other);
   const limit = m.rw(MATCH + 0x12);
   if (inn === 0) return limit >= 0 ? `${limit + 1} overs` : `${inningsName(inn)}`;
@@ -433,7 +451,8 @@ function bannerFor(g: MatchGame, e: MatchEvent): Banner | null {
 function resultText(g: MatchGame, r: MatchResult): string {
   if (r.kind === "tie") return "The match is a tie";
   if (r.kind === "draw") return "The match is drawn";
-  const last = scorecard(g.m).team, first: Team = last === "england" ? "australia" : "england";
+  const [ta, tb] = g.settings.teams ?? [0, 1];
+  const last = scorecard(g.m).team, first: Team = last === ta ? tb : ta;
   const winner = r.winner === "batting" ? last : first;
   if (r.kind === "innings") return `${NAMES[winner]} win by an innings`;
   return `${NAMES[winner]} win by ${r.margin} ${r.kind === "runs" ? "run" : "wicket"}${r.margin === 1 ? "" : "s"}`;

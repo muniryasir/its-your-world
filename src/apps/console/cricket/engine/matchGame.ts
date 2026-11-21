@@ -10,12 +10,18 @@ import {
 } from "./match";
 import type { Input } from "./engine";
 
-export type Team = "england" | "australia";
+import { TEAM_DATA, SQUAD_AT, SQUAD_SIZE, RECORDS_AT, RECORDS_SIZE } from "./teamData";
+
+/** a team: its index in the original's list (0 England, 1 Australia, ... 12 All Time XI) */
+export type Team = number;
+export const TEAM_NAMES = TEAM_DATA.map((t) => t.name);
 
 export interface MatchSettings {
   /** the side the player's pad controls (null: the computer plays both) */
   human: Team | null;
   batFirst: Team;
+  /** the two sides (the original's first and second team picked); left out: England v Australia */
+  teams?: [Team, Team];
   /** overs a side: 10, 20, 40, 50, 55, 60, 90, or 0 for no limit */
   overs: number;
   /** the original's PERIOD (1..5 days, +$E = days - 1) and INNINGS (1 or 2 a side, +$14 = the last
@@ -35,7 +41,7 @@ export interface MatchSettings {
   seed: number;
 }
 
-export const DEFAULT_MATCH: MatchSettings = { human: "england", batFirst: "england", overs: 10, humanField: true, difficulty: 1, seed: 1 };
+export const DEFAULT_MATCH: MatchSettings = { human: 0, batFirst: 0, teams: [0, 1], overs: 10, humanField: true, difficulty: 1, seed: 1 };
 
 const decode = (b64: string): Uint8Array =>
   typeof atob === "function" ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : new Uint8Array(Buffer.from(b64, "base64"));
@@ -56,9 +62,13 @@ export function newMatch(s: MatchSettings): Ram {
   for (const [a, b64] of BASE_RAM_MATCH) buf.set(decode(b64), a);
   const m = new Ram(buf);
   const set = (o: number, v: number) => m.ww(MATCH + o, v);
-  set(2, s.human === "england" ? 0 : -1);
-  set(6, s.human === "australia" ? 0 : -1);
-  set(8, s.batFirst === "england" ? 0 : -1);
+  const [ta, tb] = s.teams ?? [0, 1];
+  loadTeam(m, ta, 0);
+  loadTeam(m, tb, 1);
+  set(0, ta); set(4, tb);
+  set(2, s.human === ta ? 0 : -1);
+  set(6, s.human === tb && s.human !== ta ? 0 : -1);
+  set(8, s.batFirst === tb && tb !== ta ? -1 : 0);
   set(0x12, s.overs > 0 ? s.overs - 1 : -1);
   set(0xe, (s.days ?? 1) - 1);
   set(0x14, s.innings === 2 ? 3 : 1);
@@ -73,6 +83,21 @@ export function newMatch(s: MatchSettings): Ram {
   matchStart(m);
   return m;
 }
+
+/** a side's squad and XI as the original loads them (the second side's block is $8D0 further on, and
+ *  its players' records point into it) */
+function loadTeam(m: Ram, team: Team, side: 0 | 1): void {
+  const t = TEAM_DATA[team];
+  const off = side ? SQUAD_SIZE : 0;
+  m.buf.set(decode(t.squad), SQUAD_AT + off);
+  const rec = side ? 0xb9a0 : RECORDS_AT;
+  m.buf.set(decode(t.records), rec);
+  if (side) for (let k = 0; k < 11; k++) m.ww(rec + 0x68 * k + 4, m.rw(rec + 0x68 * k + 4) + off);
+  // the loaded squads by team ($72EA + 4 x team: the squad's address, 0 when not loaded)
+  if (side === 0) for (let k = 0; k < TEAM_DATA.length; k++) m.wl(0x72ea + 4 * k, 0);
+  m.wl(0x72ea + 4 * team, 0xff0000 | (SQUAD_AT + off));
+}
+void RECORDS_SIZE;
 
 export interface BatLine { name: string; how: "dnb" | "not out" | "bowled" | "caught" | "run out" | "lbw"; bowler?: string; catcher?: string; runs: number; balls: number; fours: number; sixes: number }
 export interface BowlLine { name: string; overs: string; maidens: number; runs: number; wickets: number }
@@ -96,7 +121,7 @@ export function playerName(m: Ram, rec: number): string {
 /** the current innings as a scorecard, from the two sides' records */
 export function scorecard(m: Ram): InningsCard {
   const bat = m.rl(0xb51c) & 0xffff, field = m.rl(0xb522) & 0xffff;
-  const teamOf = (base: number): Team => ((base === 0xb528 ? m.rw(MATCH) : m.rw(MATCH + 4)) === 0 ? "england" : "australia");
+  const teamOf = (base: number): Team => (base === 0xb528 ? m.rw(MATCH) : m.rw(MATCH + 4));
   const batting: BatLine[] = [];
   for (let k = 0; k < 11; k++) {
     const r = bat + REC * k, st = m.rw(r + 6);

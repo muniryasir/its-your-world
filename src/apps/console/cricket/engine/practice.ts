@@ -23,7 +23,7 @@ import { fieldScreen } from "./fieldlib";
 import { padFrame, padPresses } from "./pads";
 import { setUpField } from "./teams";
 import { MASKS } from "./maskData";
-import { ballSprite } from "./collide";
+import { ballSprite, kitFrame } from "./collide";
 /** sub_00C8BC: a limited-overs match (coloured clothing, white ball) */
 const coloured = (m: Ram) => m.rw(0xbe68 + 0x1a) !== 0;
 import { w } from "./m68k";
@@ -336,7 +336,7 @@ export function scene(m: Ram, ph: string, showBall = true): Omit<View, "phase" |
   {
     const f = m.rw(0x8610 + 0xe);
     const [x, y] = bodyScreen(m, m.rw(0x8610), m.rw(0x8614), f);
-    const frame = f + 0x8d;
+    const frame = kitFrame(m, f + 0x8d); // sub_00C8CC: coloured clothing's frames
     sprites.push({ kind: "batsman", x, y, frame: (m.rb(0xd2c6) & 0xff) !== 0 ? -frame : frame, depth: m.rw(0x8614) });
   }
   // the stumps (part of sub_00EED6)
@@ -349,7 +349,7 @@ export function scene(m: Ram, ph: string, showBall = true): Omit<View, "phase" |
   for (const f of fielderPtrs(m)) {
     if (f === 0) continue;
     const s = fielderSprite(m, f);
-    if (MASKS[Math.abs(s.frame)]) sprites.push({ kind: "fielder", ...s, depth: m.rw(f + 0x104) });
+    if (MASKS[Math.abs(s.frame)]) sprites.push({ kind: "fielder", ...s, frame: s.frame < 0 ? -kitFrame(m, -s.frame) : kitFrame(m, s.frame), depth: m.rw(f + 0x104) });
   }
   let ball: View["ball"];
   if (m.rw(0xe5a2) !== 0 && showBall) {

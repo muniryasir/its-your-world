@@ -9,7 +9,7 @@ import { getMask } from "./engine/collide";
 import type { View, Sprite, FieldScene } from "./engine/practice";
 import { BOUNDARY } from "./engine/practice";
 import { fieldScreen, outside } from "./engine/fieldlib";
-import { getArt } from "./art";
+import { getArt, matchColours } from "./art";
 import type { Art } from "./art";
 import { ATLAS, STATIC_AT, GAUGES, FIELD_ATLAS, OVERLAY_AT } from "./art/atlas";
 import type { Mode } from "./engine/practice";
@@ -61,7 +61,7 @@ const STARS = Array.from({ length: 70 }, (_, i) => {
 export function drawScene(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: number, time: number): void {
   if (view.field) {
     const art = getArt();
-    if (art) return drawFieldOriginal(ctx, view.field, view.mode, scale, art);
+    if (art) return drawFieldOriginal(ctx, m, view.field, view.mode, scale, art);
     return drawField(ctx, m, view.field, scale);
   }
   const art = getArt();
@@ -218,7 +218,7 @@ function drawOriginal(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: 
     ctx.stroke();
   }
   const ball = view.ball;
-  const sheet = view.mode === "bowl" ? art.sprites.bowl : art.sprites.bat;
+  const sheet = art.sheets(...matchColours(m)).sprites;
   const sprite = (frame: number, x: number, y: number) => {
     const r = ATLAS[Math.abs(frame)];
     if (!r) return;
@@ -381,7 +381,7 @@ export function drawField(ctx: CanvasRenderingContext2D, m: Ram, f: FieldScene, 
 /** the fielding view with the original art: the ground scrolled with the camera, the original's display
  *  objects (fielders, batsmen running, stumps, umpire, ball and shadow, your fielder's ring, the arrow,
  *  your target marker) in its order, the pitch overlay with the runners' icons in front */
-function drawFieldOriginal(ctx: CanvasRenderingContext2D, f: FieldScene, mode: Mode, scale: number, art: Art): void {
+function drawFieldOriginal(ctx: CanvasRenderingContext2D, m: Ram, f: FieldScene, mode: Mode, scale: number, art: Art): void {
   ctx.save();
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.imageSmoothingEnabled = false;
@@ -389,7 +389,7 @@ function drawFieldOriginal(ctx: CanvasRenderingContext2D, f: FieldScene, mode: M
   ctx.fillStyle = "#1f5c00"; // beyond the map (the original never scrolls there)
   ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
   ctx.drawImage(ground, -f.scroll[0], -f.scroll[1]);
-  const sheet = art.field.sprites[mode];
+  const sheet = art.sheets(...matchColours(m)).field;
   const draw = (o: FieldScene["objects"][number]) => {
     const r = FIELD_ATLAS[o.frame];
     if (!r) return;

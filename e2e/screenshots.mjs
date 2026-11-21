@@ -112,6 +112,10 @@ await shot(page, "starfall-result-desktop");
 // the pause menu, the scorecard, auto play quick to the result), then the nets
 await page.goto(BASE + "/console/cricket?cc-match-demo&cc-seed=7", { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Start the match" }).waitFor({ timeout: 30000 });
+// two of the other teams, coloured kits
+await page.getByLabel("First team").selectOption({ label: "Sri Lanka" });
+await page.getByLabel("Second team").selectOption({ label: "West Indies" });
+await page.locator("label", { hasText: "Coloured" }).click();
 await shot(page, "cricket-match-setup-desktop");
 await page.getByRole("button", { name: "Start the match" }).click();
 await page.waitForTimeout(9000);
