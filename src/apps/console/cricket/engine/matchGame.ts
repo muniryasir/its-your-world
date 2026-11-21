@@ -5,6 +5,7 @@ import { Ram } from "./mem";
 import { BASE_RAM_MATCH } from "./baseMatch";
 import {
   Delivery, MatchEvent, MatchResult, BallSummary, matchFlow, matchStart, pitchAndWeather, canBowl, humanDeclares,
+  setNextBowler,
   total, wicketsIdx, MATCH,
 } from "./match";
 import type { Input } from "./engine";
@@ -38,6 +39,16 @@ export const DEFAULT_MATCH: MatchSettings = { human: "england", batFirst: "engla
 
 const decode = (b64: string): Uint8Array =>
   typeof atob === "function" ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : new Uint8Array(Buffer.from(b64, "base64"));
+function encode(u: Uint8Array): string {
+  if (typeof btoa !== "function") return Buffer.from(u).toString("base64");
+  let s = "";
+  for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+/** a match kept in the browser: the RAM at the start of the ball in play (sub_00E13E's entry), the
+ *  finished innings' cards and the settings. Play goes on from that ball. */
+export interface SavedMatch { v: 1; settings: MatchSettings; ram: string; innings: InningsCard[]; balls: number }
 
 /** The RAM of a new match, ready for the innings loop (matchFlow). England is the struct's first side. */
 export function newMatch(s: MatchSettings): Ram {
@@ -138,14 +149,62 @@ export class MatchGame {
   log: { pads: [number, number][]; answers: [number, number][] } = { pads: [], answers: [] };
   private steps = 0;
 
-  constructor(readonly settings: MatchSettings) {
+  /** auto play: the computer plays the human's side's balls (bowling, batting, fielding) and the page
+   *  answers the questions; the captain's choices stay the human's */
+  auto = false;
+  /** balls bowled so far in this match (with wides) */
+  balls = 0;
+  private snapshot = "";
+  private controllers: [number, number] | null = null;
+
+  constructor(readonly settings: MatchSettings, saved?: SavedMatch, auto = false) {
+    this.auto = auto;
+    if (saved) {
+      // the flow resumes after the ball that was in play: its first step is the bookkeeping after it
+      this.m = new Ram(decode(saved.ram));
+      this.innings = saved.innings;
+      this.balls = saved.balls;
+      this.flow = matchFlow(this.m, true);
+      this.startDelivery();
+      return;
+    }
     this.m = newMatch(settings);
     this.flow = matchFlow(this.m, false);
     this.pump(undefined);
   }
 
+  /** what to keep in the browser (taken at the start of the ball in play) */
+  save(): SavedMatch { return { v: 1, settings: this.settings, ram: this.snapshot, innings: this.innings, balls: this.balls }; }
+
+  private startDelivery(): void {
+    this.snapshot = encode(this.m.buf);
+    if (this.auto) {
+      // the human side's controllers ($B520 batting, $B526 fielding) are the computer's for this ball
+      this.controllers = [this.m.rw(0xb520), this.m.rw(0xb526)];
+      this.m.ww(0xb520, -1); this.m.ww(0xb526, -1);
+    }
+    this.delivery = new Delivery(this.m);
+  }
+  private endDelivery(): void {
+    if (this.controllers) { this.m.ww(0xb520, this.controllers[0]); this.m.ww(0xb526, this.controllers[1]); this.controllers = null; }
+    this.delivery = null;
+    this.balls++;
+  }
+
+  /** who the pad plays for in the ball in play: the fielding side (you bowl), the batting side, or nobody */
+  get padRole(): "bowl" | "bat" | null {
+    if (this.m.rw(0xb526) >= 0) return "bowl";
+    if (this.m.rw(0xb520) >= 0) return "bat";
+    return null;
+  }
+
+  /** the human captain names the bowler of the next over (the in-match menu's "change next bowler") */
+  changeNextBowler(idx: number): boolean { return setNextBowler(this.m, idx); }
+  /** who may be named for the next over */
+  nextBowlerCandidates(): number[] { return this.candidates(false); }
+
   /** the fielding side's players who may be picked in the open question */
-  private candidates(forced: boolean): number[] {
+  candidates(forced: boolean): number[] {
     const out: number[] = [];
     for (let k = 0; k < 11; k++) if (canBowl(this.m, k, forced)) out.push(k);
     return out;
@@ -158,7 +217,7 @@ export class MatchGame {
       if (ev.done) { this.over = true; return; }
       const e = ev.value;
       switch (e.kind) {
-        case "delivery": this.delivery = new Delivery(this.m); return;
+        case "delivery": this.startDelivery(); return;
         case "chooseBowler": this.question = { kind: "chooseBowler", forced: e.forced, candidates: this.candidates(e.forced) }; return;
         case "chooseOpeningBowlers": this.question = { kind: "chooseOpeningBowlers", candidates: this.candidates(false) }; return;
         case "lastDayEnd": this.news.push(e); this.question = { kind: "playOn" }; return;
@@ -180,7 +239,7 @@ export class MatchGame {
     if (last && last[0] === v) last[1]++; else this.log.pads.push([v, 1]);
     this.steps++;
     d.step(input);
-    if (d.done) { this.delivery = null; this.pump(undefined); }
+    if (d.done) { this.endDelivery(); this.pump(undefined); }
   }
 
   /** the human captain declares: the innings ends with the over in progress (unlimited overs only) */
@@ -194,6 +253,9 @@ export class MatchGame {
    *  1 to play on (playOn), or nothing to keep what the engine set (playOn: the match ends drawn) */
   answer(value?: number): void {
     if (!this.question) return;
+    const q = this.question;
+    // a forced change needs a bowler: left alone, the first who may bowl
+    if (q.kind === "chooseBowler" && q.forced && (value === undefined || !q.candidates.includes(value))) value = q.candidates[0];
     this.question = null;
     this.log.answers.push([this.steps, value ?? -1]);
     this.pump(value);

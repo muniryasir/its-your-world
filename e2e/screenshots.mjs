@@ -108,8 +108,24 @@ await shot(page, "starfall-playing-desktop", false);
 await endRun(page);
 await shot(page, "starfall-result-desktop");
 
-// Console Cricket (console/cricket branch): batting practice before and during a delivery
-await page.goto(BASE + "/console/cricket", { waitUntil: "networkidle" });
+// Console Cricket (console/cricket branch): a match (setup, play with the computer playing for you,
+// the pause menu, the scorecard, auto play quick to the result), then the nets
+await page.goto(BASE + "/console/cricket?cc-match-demo&cc-seed=7", { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "Start the match" }).waitFor({ timeout: 30000 });
+await shot(page, "cricket-match-setup-desktop");
+await page.getByRole("button", { name: "Start the match" }).click();
+await page.waitForTimeout(9000);
+await shot(page, "cricket-match-play-desktop", false);
+await page.getByRole("button", { name: "Pause menu" }).click();
+await shot(page, "cricket-match-pause-desktop", false);
+await page.getByRole("button", { name: "Scorecard" }).first().click();
+await shot(page, "cricket-match-scorecard-desktop", false);
+await page.getByRole("button", { name: "Close" }).click();
+await page.getByRole("button", { name: "Auto play quick: to the result" }).click();
+await page.getByText(/ win by | is a tie| is drawn/).waitFor({ timeout: 240000 });
+await shot(page, "cricket-match-result-desktop", false);
+// batting practice before and during a delivery
+await page.goto(BASE + "/console/cricket?cc-tab=nets", { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Face the first ball" }).waitFor({ timeout: 30000 });
 await shot(page, "cricket-ready-desktop");
 await page.getByRole("button", { name: "Face the first ball" }).click();
@@ -178,7 +194,14 @@ const overflow = await page.evaluate(() => document.documentElement.scrollWidth 
 if (overflow > 0) throw new Error(`Starfall page is ${overflow}px wider than a 390px phone screen`);
 await endRun(page);
 await shot(page, "starfall-result-mobile");
-await page.goto(BASE + "/console/cricket", { waitUntil: "networkidle" });
+await page.goto(BASE + "/console/cricket?cc-match-demo&cc-seed=7", { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "Start the match" }).waitFor({ timeout: 30000 });
+const mOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+if (mOverflow > 0) throw new Error(`Cricket match setup is ${mOverflow}px wider than a 390px phone screen`);
+await page.getByRole("button", { name: "Start the match" }).click();
+await page.waitForTimeout(6000);
+await shot(page, "cricket-match-mobile");
+await page.goto(BASE + "/console/cricket?cc-tab=nets", { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Face the first ball" }).click();
 await page.getByText("Running in").waitFor({ timeout: 30000 });
 await shot(page, "cricket-mobile");

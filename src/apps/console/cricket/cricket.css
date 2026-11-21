@@ -176,3 +176,35 @@
   .cc-overlay-text { font-size: 0.82rem; line-height: 1.35; }
   .cc-overlay-hint { display: none; }
 }
+
+/* the match (Match.tsx): classes cc-m- */
+.cc-m-tabs-top { margin-bottom: 18px; }
+.cc-m-setup { display: grid; gap: 16px; max-width: 860px; }
+.cc-m-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 22px; align-items: start; }
+.cc-m-saved { border-color: rgba(46, 211, 160, 0.45); }
+.cc-m-board { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; }
+.cc-m-team { font: 700 0.95rem var(--cc-cosmic); letter-spacing: -0.02em; }
+.cc-m-status { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.86rem; color: var(--cc-ink); }
+.cc-m-clock { color: var(--cc-sun); font-weight: 600; }
+.cc-m-players { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.84rem; color: var(--cc-muted); justify-content: end; }
+.cc-m-bowler { color: var(--cc-ink); }
+@media (max-width: 640px) { .cc-m-board { grid-template-columns: 1fr; } .cc-m-players { justify-content: start; } }
+.cc-m-banner { min-width: 170px; }
+.cc-m-banner--good .cc-result-text { color: var(--cc-teal); }
+.cc-m-banner--bad .cc-result-text { color: var(--cc-pink); }
+.cc-m-banner--big { left: 50%; right: auto; top: 50%; transform: translate(-50%, -50%); padding: 18px 22px; animation: none; }
+.cc-m-banner--big .cc-result-text { font-size: 1.35rem; color: var(--cc-sun); text-align: center; }
+.cc-m-menu, .cc-m-pick { display: grid; gap: 8px; width: min(420px, 100%); }
+.cc-m-pick { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); width: min(640px, 100%); max-height: 60%; overflow: auto; }
+.cc-m-pick .cc-btn { font-size: 0.82rem; padding: 7px 12px; }
+.cc-overlay[role="dialog"] { overflow: auto; }
+.cc-m-card { place-content: start center; align-content: start; }
+.cc-m-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.cc-m-on { background: var(--cc-teal); color: var(--cc-deep); border-color: transparent; }
+.cc-m-cardbody { display: grid; gap: 10px; width: min(640px, 100%); text-align: left; }
+.cc-m-cardbody table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.cc-m-cardbody th, .cc-m-cardbody td { padding: 3px 6px; border-bottom: 1px solid var(--cc-line); }
+.cc-m-cardbody th { text-align: left; color: var(--cc-teal); font-weight: 700; }
+.cc-m-cardbody td:nth-child(n + 3), .cc-m-cardbody th:nth-child(n + 3) { text-align: right; }
+.cc-m-totalrow td { font-weight: 700; }
+@media (max-width: 520px) { .cc-m-cardbody td:nth-child(2) { display: none; } }

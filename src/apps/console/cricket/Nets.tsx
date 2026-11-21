@@ -446,7 +446,7 @@ function FieldMap({ path }: { path: [number, number][] }) {
 }
 
 /** on-screen pad for touch screens */
-function TouchPad({ press, release, bowling }: { press: (b: number) => void; release: (b: number) => void; bowling: boolean }) {
+export function TouchPad({ press, release, bowling }: { press: (b: number) => void; release: (b: number) => void; bowling: boolean }) {
   const btn = (label: string, bits: number, cls = "") => (
     <button
       key={label}
