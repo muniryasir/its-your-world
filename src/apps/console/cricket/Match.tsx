@@ -13,6 +13,7 @@ import { VENUES, PITCH_NAMES, WEATHER_NAMES, rainChance } from "./engine/venue";
 import type { View } from "./engine/practice";
 import { drawScene, SCREEN_W, SCREEN_H } from "./render";
 import { TouchPad } from "./Nets";
+import rainCovers from "./art/rain-covers.png";
 
 const TICK_MS = 1000 / 50;
 const LIVE_TICK_MS = 1000 / 41;
@@ -24,6 +25,7 @@ const STORE = "cc-match-v2";
 const KEYS: Record<string, number> = {
   ArrowUp: PAD.U, ArrowDown: PAD.D, ArrowLeft: PAD.L, ArrowRight: PAD.R, KeyZ: PAD.A, KeyX: PAD.B, KeyC: PAD.C,
 };
+const RAIN_MS = 7000;
 const NAMES: readonly string[] = TEAM_NAMES.map((n) => (n === "All Time Xi" ? "All Time XI" : n));
 const OVERS = [10, 20, 40, 50, 55, 60, 90, 0];
 
@@ -202,6 +204,7 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
   const [menu, setMenu] = useState<"" | "pause" | "card" | "bowler">("");
   const [auto, setAuto] = useState(g.auto);
   const [quick, setQuick] = useState(false);
+  const [rain, setRain] = useState<{ from: number; to: number; at: number } | null>(null);
   const [hud, setHud] = useState<Hud>(() => readHud(g, g.balls === 0 ? conditionsBanner(g) : null, []));
 
   const press = useCallback((bits: number) => { pressedRef.current |= bits & ~heldRef.current; heldRef.current |= bits; }, []);
@@ -231,6 +234,12 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
         if (!banner) { banner = b; hold = 700; }
       } else if (b) { banner = b; hold = Math.max(hold, e.kind === "wicket" || e.kind === "overEnd" ? 1500 : 2600); }
       if (e.kind === "overEnd" || e.kind === "inningsStart") overBalls.current = [];
+      if (e.kind === "rain" && !quickMode) {
+        // the clock has moved on already (rainScene): the scene shows it running from the break
+        const to = g.m.rl(0xbf0a) / 65536;
+        setRain({ from: to - 0xa08000 / 65536, to, at: now });
+        hold = Math.max(hold, RAIN_MS);
+      }
     }
     if (!quickMode) holdUntil.current = now + hold;
     if (g.over) store(null);
@@ -330,7 +339,8 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
               <button className="cc-btn" onClick={() => setQuick(false)}>Stop and watch</button>
             </div>
           )}
-          {banner && !quick && !result && (
+          {rain && !quick && <RainScene rain={rain} onDone={() => setRain(null)} />}
+          {banner && !quick && !result && !rain && (
             <div className={`cc-result cc-m-banner cc-m-banner--${banner.tone}`} role="status">
               <span className="cc-result-text">{banner.text}</span>
               {banner.sub && <span className="cc-muted">{banner.sub}</span>}
@@ -495,6 +505,52 @@ function resultText(g: MatchGame, r: MatchResult): string {
   const winner = r.winner === "batting" ? last : first;
   if (r.kind === "innings") return `${NAMES[winner]} win by an innings`;
   return `${NAMES[winner]} win by ${r.margin} ${r.kind === "runs" ? "run" : "wicket"}${r.margin === 1 ? "" : "s"}`;
+}
+
+/** the original's rain break: the covers on the ground (its background, from the emulator), the rain, and
+ *  the clock running until play can resume */
+function RainScene({ rain, onDone }: { rain: { from: number; to: number; at: number }; onDone: () => void }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const img = new Image();
+    img.src = rainCovers;
+    const drops = Array.from({ length: 90 }, (_, i) => ({ x: (i * 97) % 320, y: (i * 53) % 224, v: 3 + (i % 4) }));
+    let raf = 0;
+    const draw = (now: number) => {
+      const c = ref.current;
+      if (!c) return;
+      const ctx = c.getContext("2d")!;
+      const t = Math.min(1, (now - rain.at) / (RAIN_MS - 800));
+      ctx.imageSmoothingEnabled = false;
+      if (img.complete) ctx.drawImage(img, 0, 0); else { ctx.fillStyle = "#3d5a12"; ctx.fillRect(0, 0, 320, 224); }
+      ctx.strokeStyle = "rgba(220,230,255,0.75)"; ctx.lineWidth = 1;
+      for (const d of drops) {
+        d.y += d.v; d.x -= d.v / 4;
+        if (d.y > 224) { d.y = -6; d.x = (d.x + 137) % 340; }
+        ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - 1.5, d.y + 6); ctx.stroke();
+      }
+      // the clock (the original's stands by the covers): hands at the time of day
+      const min = rain.from + (rain.to - rain.from) * t;
+      const cx = 266, cy = 160, r = 24;
+      ctx.fillStyle = "#7a4a2a"; ctx.fillRect(cx - 32, cy - 42, 64, 78);
+      ctx.fillStyle = "#c9c9d6"; ctx.fillRect(cx - 26, cy - 52, 52, 14);
+      ctx.fillStyle = "#f4f4f4"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#a33"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = "#111";
+      const hand = (a: number, len: number, wdt: number) => { ctx.lineWidth = wdt; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(a) * len, cy - Math.cos(a) * len); ctx.stroke(); };
+      hand(((min / 60) % 12) / 12 * Math.PI * 2, r * 0.55, 2.5);
+      hand(((min % 60) / 60) * Math.PI * 2, r * 0.85, 1.5);
+      if (now - rain.at < RAIN_MS) raf = requestAnimationFrame(draw); else onDone();
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [rain, onDone]);
+  return (
+    <div className="cc-m-rain" role="status" aria-label="Rain stops play">
+      <canvas ref={ref} width={320} height={224} />
+      <p className="cc-m-rain-text">Rain stops play · play resumes at {timeText(Math.floor(rain.to))}</p>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------- the captain's questions

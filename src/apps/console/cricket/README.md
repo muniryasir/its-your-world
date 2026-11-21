@@ -145,10 +145,12 @@ view on every tick; all three start states pass, fielding views included).
   only its own bytes, so the rest of the row keeps whatever an earlier mask left there, and the ball can
   hit those phantom pixels (a mirrored, left-handed batsman's pad in a recorded Test match). The engine
   builds the masks the same way into its RAM (`collide.ts`, pieces in `maskPieces.ts`).
-- **The rain scene.** Its clock is rebuilt (the covers stay on for 10 hours 8 minutes of game time:
-  the original's rain meter has no randomness), its display isn't, nor the fielders walking off and
-  back on: so the first ball after rain can differ from the original. A new match starts with no rain
-  in the forecast; the forecast made at the change of innings can bring rain later.
+- **The rain scene.** Its rules are the original's: the clock (the covers stay on for 10 hours 8
+  minutes of game time: the rain meter has no randomness), lunch or tea lost to the rain, the wetter
+  pitch; the page shows the original's covers (from the emulator) with the clock running. Not rebuilt:
+  the scene's animation, which draws about 34,000 random numbers (the raindrops) while the players walk
+  off and back: so after rain the random sequence is not the original's, and the recording checker
+  continues from the recording at a rain break.
 - **Follow-on and your declaration** are rebuilt from the code but not yet seen in a recording. The
   follow-on question goes to the human controlling the side that batted last, as the original's code
   reads.

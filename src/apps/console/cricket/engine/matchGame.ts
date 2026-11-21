@@ -84,7 +84,8 @@ export function newMatch(s: MatchSettings): Ram {
   m.ww(0xe8e8, (s.seed & 0xffff) || 1);
   venueConditions(m, s.venue ?? (ta < VENUES ? ta : 0), s.pitch, s.weather);
   pitchAndWeather(m);
-  m.ww(0xc5e2, -1); // no rain: the rain scene's clock is ported (rainScene), the fielders' walk off is not
+  // the rain forecast stands (pitchAndWeather): the rain scene's clock and rules are the original's;
+  // its animation's random draws are not reproduced (see README)
   matchStart(m);
   return m;
 }
