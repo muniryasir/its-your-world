@@ -1,12 +1,13 @@
 // Smoke test of the match layer: plays whole matches with the engine alone (no recording) and prints
 // the scorecards. The pad is empty or random; questions get the first candidate.
-// usage: npx tsx tools/playMatch.ts [seed] [human: england|australia|none] [overs] [random]
+// usage: npx tsx tools/playMatch.ts [seed] [human: england|australia|none] [overs] [random] [days] [innings a side]
 import { MatchGame, DEFAULT_MATCH, scorecard, Team } from "../engine/matchGame";
 const seed = +(process.argv[2] ?? 1);
 const human = (process.argv[3] ?? "none") === "none" ? null : (process.argv[3] as Team);
 const overs = +(process.argv[4] ?? 10);
 const random = process.argv[5] === "random";
-const g = new MatchGame({ ...DEFAULT_MATCH, human, overs, seed });
+const days = +(process.argv[6] ?? 1), innings = (+(process.argv[7] ?? 1) === 2 ? 2 : 1) as 1 | 2;
+const g = new MatchGame({ ...DEFAULT_MATCH, human, overs, seed, days, innings });
 let r = seed * 7919 + 1, held = 0, n = 0;
 while (!g.over && n < 40_000_000) {
   if (g.question) { const q = g.question; g.answer(q.kind === "chooseBowler" ? q.candidates[0] : undefined); continue; }
@@ -17,6 +18,12 @@ while (!g.over && n < 40_000_000) {
   }
   g.step({ held, pressed });
   n++;
+  // the Test screens (and with ALLEV=1 every event but the balls), with the clock
+  const clock = () => `${(g.m.rw(0xbf0a) / 60) | 0}:${String(g.m.rw(0xbf0a) % 60).padStart(2, "0")}`;
+  for (const e of g.news) {
+    if (process.env.ALLEV ? e.kind !== "ball" : ["interval", "dayEnd", "lastDayEnd", "rain"].includes(e.kind)) console.log(`  ${JSON.stringify(e)} ${clock()}`);
+  }
+  g.news.length = 0;
 }
 for (const c of g.innings) {
   console.log(`${c.team}: ${c.total}/${c.wickets} (${c.overs} overs)  extras w ${c.extras.wides} lb ${c.extras.legByes} b ${c.extras.byes}  fow ${c.fallOfWickets.join(" ")}`);

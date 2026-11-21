@@ -94,6 +94,11 @@ view on every tick; all three start states pass, fielding views included).
 - **A stale pointer.** `sub_0471D8` calls `sub_048202` without setting the register it reads the "hand
   frame" from, so it reads the word at `$FFFF8D96`; that word is `$160` throughout, so the engine uses
   that constant.
+- **Stale bytes in the collision masks.** The original builds each sprite's 1-bit mask in RAM
+  (`$FF6CE6` / `$FF6FE6`) piece by piece, a row being the width rounded up to 16 pixels. A piece writes
+  only its own bytes, so the rest of the row keeps whatever an earlier mask left there, and the ball can
+  hit those phantom pixels (a mirrored, left-handed batsman's pad in a recorded Test match). The engine
+  builds the masks the same way into its RAM (`collide.ts`, pieces in `maskPieces.ts`).
 - **Dead code.** The fielding view's dive (state 5) and jump (state 7) can't be reached in the original:
   nothing calls the routines that set them. They throw if ever reached.
 - **Things the checkers skip**: VBlank counters and the pad words (the emulator samples the pad a frame

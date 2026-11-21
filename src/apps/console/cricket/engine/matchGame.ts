@@ -17,6 +17,10 @@ export interface MatchSettings {
   batFirst: Team;
   /** overs a side: 10, 20, 40, 50, 55, 60, 90, or 0 for no limit */
   overs: number;
+  /** the original's PERIOD (1..5 days, +$E = days - 1) and INNINGS (1 or 2 a side, +$14 = the last
+   *  innings' number: 1 or 3); left out: a one-day, one-innings match */
+  days?: number;
+  innings?: 1 | 2;
   /** the player's fielders are moved by hand (the original's default) */
   humanField: boolean;
   /** 0 easy .. 2 hard ($8604) */
@@ -43,13 +47,15 @@ export function newMatch(s: MatchSettings): Ram {
   set(6, s.human === "australia" ? 0 : -1);
   set(8, s.batFirst === "england" ? 0 : -1);
   set(0x12, s.overs > 0 ? s.overs - 1 : -1);
+  set(0xe, (s.days ?? 1) - 1);
+  set(0x14, s.innings === 2 ? 3 : 1);
   set(0x18, s.humanField ? -1 : 0);
   if (s.pitch !== undefined) set(0x22, s.pitch);
   if (s.weather !== undefined) set(0x24, s.weather);
   m.ww(0x8604, s.difficulty);
   m.ww(0xe8e8, (s.seed & 0xffff) || 1);
   pitchAndWeather(m);
-  m.ww(0xc5e2, -1); // no rain until the rain scene is rebuilt (Test rules)
+  m.ww(0xc5e2, -1); // no rain: the rain scene's clock is ported (rainScene), the fielders' walk off is not
   matchStart(m);
   return m;
 }
@@ -105,7 +111,9 @@ export function scorecard(m: Ram): InningsCard {
 /** what the page must answer before play goes on */
 export type Question =
   | { kind: "chooseBowler"; forced: boolean; candidates: number[] }
-  | { kind: "chooseOpeningBowlers"; candidates: number[] };
+  | { kind: "chooseOpeningBowlers"; candidates: number[] }
+  /** the last day is over with the match unfinished: 1 plays on to a result, anything else ends it drawn */
+  | { kind: "playOn" };
 
 export class MatchGame {
   readonly m: Ram;
@@ -147,6 +155,7 @@ export class MatchGame {
         case "delivery": this.delivery = new Delivery(this.m); return;
         case "chooseBowler": this.question = { kind: "chooseBowler", forced: e.forced, candidates: this.candidates(e.forced) }; return;
         case "chooseOpeningBowlers": this.question = { kind: "chooseOpeningBowlers", candidates: this.candidates(false) }; return;
+        case "lastDayEnd": this.news.push(e); this.question = { kind: "playOn" }; return;
         case "ball": this.lastBall = e.ball; this.news.push(e); break;
         case "inningsEnd": this.innings.push(scorecard(this.m)); this.news.push(e); break;
         case "matchEnd": this.result = e.result; this.news.push(e); break;
@@ -168,7 +177,7 @@ export class MatchGame {
   }
 
   /** answer the open question: a player's index (chooseBowler), first | second << 8 (chooseOpeningBowlers),
-   *  or nothing to keep what the engine set */
+   *  1 to play on (playOn), or nothing to keep what the engine set (playOn: the match ends drawn) */
   answer(value?: number): void {
     if (!this.question) return;
     this.question = null;

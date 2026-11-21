@@ -8,6 +8,7 @@ import { Ram, ROM, SIN, COS } from "./mem";
 import { w, l, muls, asr } from "./m68k";
 import { projectCam } from "./project";
 import { MASKS } from "./maskData";
+import { PIECES } from "./maskPieces";
 import { predictAtY } from "./ball";
 import { rngNextAt } from "./rngAt";
 
@@ -94,26 +95,68 @@ function decode(b64: string): Uint8Array {
 const bit = (mk: Mask, x: number, y: number): boolean =>
   x >= 0 && y >= 0 && x < mk.stride * 8 && y < mk.h && (mk.bits[y * mk.stride + (x >> 3)] & (0x80 >> (x & 7))) !== 0;
 
+// The original builds the two masks in RAM ($FF6CE6 and $FF6FE6) from the frame's pieces, a row being
+// the width rounded up to 16 pixels. A piece writes only its own bytes: the rest of the row keeps what an
+// earlier mask left there (the column past the width is cleared only when bit 3 of the width is set), and
+// that stale content takes part in the test. So the masks are built into the engine's RAM the same way.
+const MASK_A = 0x6ce6, MASK_B = 0x6fe6;
+interface Built { w: number; h: number; stride: number; buf: number }
+
+/** sub_049358 / sub_04976A (mirrored, a negative frame): build a frame's mask at `buf` */
+function buildMask(m: Ram, frame: number, buf: number): Built {
+  const f = Math.abs(frame);
+  const pieces = PIECES[f];
+  if (!pieces) throw new Error(`no collision mask for sprite frame ${frame}`);
+  const [wd, ht] = pieces;
+  const stride = (((wd - 1) | 15) + 1) >> 3;
+  const mirror = frame < 0;
+  if (wd & 8) for (let y = 0; y < ht; y++) m.wb(buf + y * stride + (mirror ? 0 : stride - 1), 0);
+  const clean = getMask(f);
+  for (const [px, py, size] of pieces[2]) {
+    const bytes = (size >> 2) + 1, rows = ((size & 3) + 1) * 8;
+    const b0 = px >> 3, s0 = mirror ? (wd - px) >> 3 : b0;
+    for (let r = 0; r < rows; r++) {
+      const row = buf + (py + r) * stride;
+      for (let j = 0; j < bytes; j++) {
+        const x = b0 + j;
+        let v = x < clean.stride && py + r < clean.h ? clean.bits[(py + r) * clean.stride + x] : 0;
+        if (mirror) { let rv = 0; for (let b = 0; b < 8; b++) if (v & (1 << b)) rv |= 0x80 >> b; m.wb(row + s0 - 1 - j, rv); }
+        else m.wb(row + s0 + j, v);
+      }
+    }
+  }
+  return { w: wd, h: ht, stride, buf };
+}
+const rbit = (m: Ram, mk: Built, x: number, y: number): boolean =>
+  x >= 0 && y >= 0 && x < mk.stride * 8 && y < mk.h && (m.rb(mk.buf + y * mk.stride + (x >> 3)) & (0x80 >> (x & 7))) !== 0;
+const frameSize = (frame: number): [number, number] => {
+  const p = PIECES[Math.abs(frame)];
+  if (!p) throw new Error(`no collision mask for sprite frame ${frame}`);
+  return [p[0], p[1]];
+};
+
 /** sub_04912A: do two sprites (top-left x, y, frame) overlap on a set pixel? */
-export function spritesOverlap(ax: number, ay: number, af: number, bx: number, by: number, bf: number): boolean {
+export function spritesOverlap(m: Ram, ax: number, ay: number, af: number, bx: number, by: number, bf: number): boolean {
   if (bx > ax) [ax, ay, af, bx, by, bf] = [bx, by, bf, ax, ay, af];
   const dx = w(ax - bx), dy = w(ay - by); // A is right of (or level with) B
-  const A = getMask(af), B = getMask(bf);
-  if (dx >= B.w) return false;
-  if (dy < 0) { if (-dy >= A.h) return false; } else if (dy >= B.h) return false;
+  const [bw, bh] = frameSize(bf), [, ah] = frameSize(af);
+  if (dx >= bw) return false;
+  if (dy < 0) { if (-dy >= ah) return false; } else if (dy >= bh) return false;
+  const B = buildMask(m, bf, MASK_A), A = buildMask(m, af, MASK_B);
   for (let y = 0; y < B.h; y++)
     for (let x = dx; x < B.stride * 8; x++)
-      if (bit(B, x, y) && bit(A, x - dx, y - dy)) return true;
+      if (rbit(m, B, x, y) && rbit(m, A, x - dx, y - dy)) return true;
   return false;
 }
 
 /** sub_04909E: is screen point (px, py) on a set pixel of the sprite at (sx, sy)? */
-function pointOnSprite(px: number, py: number, sx: number, sy: number, frame: number): boolean {
+function pointOnSprite(m: Ram, px: number, py: number, sx: number, sy: number, frame: number): boolean {
   const x = w(px - sx), y = w(py - sy);
   if (x < 0 || y < 0) return false;
-  const mk = getMask(frame);
-  if (x >= mk.w || y >= mk.h) return false;
-  return bit(mk, x, y);
+  const [fw, fh] = frameSize(frame);
+  if (x >= fw || y >= fh) return false;
+  const mk = buildMask(m, frame, MASK_A);
+  return rbit(m, mk, x, y);
 }
 
 // ---------------------------------------------------------------- object lists
@@ -157,7 +200,7 @@ export function testObjects(m: Ram, handlers: Record<number, Handler>): void {
     m.ww(obj, m.rw(obj) | 1);
     m.ww(obj + 2, m.rw(0xe582));
     m.ww(obj + 4, m.rw(0xe584));
-    if (!spritesOverlap(m.rw(0xe58e), m.rw(0xe590), m.rw(0xe592), m.rw(a0), m.rw(a0 + 2), m.rw(a0 + 4))) continue;
+    if (!spritesOverlap(m, m.rw(0xe58e), m.rw(0xe590), m.rw(0xe592), m.rw(a0), m.rw(a0 + 2), m.rw(a0 + 4))) continue;
     m.ww(obj, m.rw(obj) | 2);
     if (!forward) m.ww(0x860a, 0);
     const h = handlers[m.rl(obj + 6) & 0xffffff];
@@ -175,7 +218,7 @@ export function deflect(m: Ram, entry: number, obj: number): void {
   let d5 = 0, d6 = 0, d7 = 0;
   const px = m.rw(obj + 2), py = m.rw(obj + 4);
   const sx = m.rw(entry), sy = m.rw(entry + 2), f = m.rw(entry + 4);
-  const on = (x: number, y: number) => pointOnSprite(x, y, sx, sy, f);
+  const on = (x: number, y: number) => pointOnSprite(m, x, y, sx, sy, f);
   if (on(px, py - 1)) { d5 |= 1; d7 += 2; } else if (on(px, py - 2)) { d5 |= 1; d7 += 1; }
   if (on(px, py + 1)) { d5 |= 1; d7 -= 2; } else if (on(px, py + 2)) { d5 |= 1; d7 -= 1; }
   if (on(px - 1, py)) { d5 |= 2; d6 -= 1; } else if (on(px - 2, py)) { d5 |= 2; d6 -= 2; }

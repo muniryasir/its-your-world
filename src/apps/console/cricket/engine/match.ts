@@ -409,6 +409,10 @@ export type MatchEvent =
   | { kind: "chooseBowler"; forced: boolean }
   | { kind: "chooseOpeningBowlers" }
   | { kind: "rain" }
+  | { kind: "interval"; which: "lunch" | "tea" }
+  | { kind: "dayEnd"; day: number }
+  | { kind: "lastDayEnd" }
+  | { kind: "declared" }
   | { kind: "inningsStart" }
   | { kind: "inningsEnd" }
   | { kind: "matchEnd"; result: MatchResult };
@@ -428,8 +432,7 @@ export function* overFlow(m: Ram, resume = false): Generator<MatchEvent, void, n
     aiTablesForBowler(m, contextFromRam(m)); // sub_04630A
     // sub_041C9A: rain stops play, once: on the forecast day ($C5E2) when the clock passes $C5E4
     if (m.rw(0xc5e2) >= 0 && mw(m, 0x28) === m.rw(0xc5e2) && m.rw(0xbf0a) >= m.rw(0xc5e4)) {
-      // The scene (sub_041D5A: the covers come on and the clock runs until the rain eases) is not
-      // ported yet: whoever runs the flow moves the clock ($BF0A) on while this event is out.
+      rainScene(m);
       yield { kind: "rain" };
       m.ww(0xc5e2, -1); m.ww(0xe98a, -1);
       m.ww(MATCH + 0x32 + 2 * ballsInOver(m), 0); // (the scene sets up a delivery: sub_00C7BE)
@@ -455,6 +458,18 @@ export function* overFlow(m: Ram, resume = false): Generator<MatchEvent, void, n
     if (ballsInOver(m) === 6 || targetPassed(m)) break;
   }
   crowdQuiet(m);
+}
+/** sub_041D5A: the rain scene. The covers come on and the clock runs while the rain meter ($D10A) is up:
+ *  the meter starts at 4, rises to 255, holds for 128 steps and falls; the clock runs an hour a step
+ *  while it is at $90 or more (129 steps), then slows down over 64 more (sub_042C62, sub_04302E). The
+ *  meter has no randomness, so the scene always takes 10:08 (+$A08000) plus whatever rate the last scene
+ *  left ($D13C, 0 after a scene). The rest of the scene is the original's display. */
+export function rainScene(m: Ram): void {
+  m.wl(0xbf0a, l(m.rl(0xbf0a) + m.rl(0xd13c))); // sub_042C62's first sub_042FA4
+  m.wl(0xd134, m.rl(0xbf0a));
+  m.wl(0xbf0a, l(m.rl(0xbf0a) + 0xa08000));
+  m.wl(0xd13c, 0);
+  m.wl(0xd138, l(m.rl(0xbf0a) - m.rl(0xd134)));
 }
 function atBowlerLimitOrPast(m: Ram): boolean {
   let d1 = mw(m, 0x12);
@@ -500,12 +515,104 @@ export function* inningsOvers(m: Ram, resume = false): Generator<MatchEvent, voi
     m.wl(0xbf0a, l(m.rl(0xbf0a) + (rngNextAt(m) & 0x7fff)));
     if (wicketsIdx(m) === 9 || targetPassed(m) || overLimit(m)) break;
     yield { kind: "overEnd" };
-    // sub_04DBC0: the computer captain may declare (unlimited overs, phase 4b)
+    if (computerDeclares(m)) yield { kind: "declared" }; // sub_04DBC0
     if (mw(m, 0x46 + 2 * slot(m)) !== 0) break; // sub_00C512: declared
     changeEnds(m);
-    // lunch, tea, close of play (sub_02F606 / 02F74E / 02F896): phase 4b
+    if (m.rw(0xe982) !== 0) m.ww(0xe98a, 0);
+    // lunch, tea, close of play (sub_02F606 / 02F74E / 02F896)
+    if (interval(m, 0xbedc, 0x30c, 0x334)) yield { kind: "interval", which: "lunch" };
+    if (interval(m, 0xbede, 0x3ac, 0x3c0)) yield { kind: "interval", which: "tea" };
+    yield* closeOfPlay(m);
   }
   m.wl(0xbf0a, l(m.rl(0xbf0a) + 0xf0000));
+}
+
+/** sub_02F606 (lunch: at 13:00 the clock goes to 13:40) / sub_02F74E (tea: 15:40 -> 16:00), once a day.
+ *  The clock's minutes are the high word of $BF0A (11:00 = $294); only that word is set. */
+function interval(m: Ram, flag: number, at: number, resume: number): boolean {
+  if (m.rw(flag) !== 0 || m.rw(0xbf0a) < at) return false;
+  m.ww(0xbf0a, resume);
+  m.ww(flag, -1);
+  m.ww(0xe98a, -1);
+  return true;
+}
+
+/** sub_04DBC0: does the computer captain of the batting side declare, at the end of an over? Only in
+ *  matches of unlimited overs. Days left (after today) count 400 runs (one innings a side) or 350, and the
+ *  time left today to 18:00 350 runs per 10 hours.
+ *  - one innings a side, first innings: declare at that many runs, or at 300 a day left + today's share
+ *    with at least 250 on the board;
+ *  - two innings a side: the first innings at 500; the second when the lead is 50 + 50 a day left;
+ *    the third (the side that batted first, unless they followed on) when the lead is the runs left. */
+export function computerDeclares(m: Ram): boolean {
+  if (m.rw(0xb520) >= 0 || m.rw(0xbe7a) >= 0 || m.rw(0xc2de) !== 0) return false;
+  const daysLeft = Math.max(0, w(mw(m, 0xe) - mw(m, 0x28)));
+  const today = () => divs(w(muls(Math.max(0, w(0x438 - m.rw(0xbf0a))), 0x15e)), 0x258).q;
+  let declare = false;
+  if (mw(m, 0x14) === 1) {
+    if (inningsNo(m) !== 0) return false;
+    const t = today();
+    const d7 = w(muls(daysLeft, 0x190) + t), d6 = w(muls(daysLeft, 0x12c) + t);
+    const tot = total(m);
+    declare = tot >= d7 || (tot >= 0xfa && tot >= d6);
+  } else {
+    const inn = inningsNo(m);
+    if (inn === 0) declare = total(m) >= 0x1f4;
+    else if (inn === 1) {
+      const [d4, , d6] = totals(m);
+      const lead = w(d6 - d4);
+      declare = lead >= 0 && lead >= w(muls(daysLeft, 0x32) + 0x32);
+    } else {
+      if ((mw(m, 0xa) !== 0 ? inn ^ 1 : inn) !== 2) return false;
+      const [d4, , d6] = totals(m);
+      const lead = w(d4 - d6);
+      declare = lead >= 0 && lead >= w(muls(daysLeft, 0x15e) + today());
+    }
+  }
+  if (declare) setMw(m, 0x46 + 2 * slot(m), -1); // sub_00C58A
+  return declare;
+}
+
+/** sub_00C356: is this the match's last day (+$28 = +$E; not when the days are unlimited)? */
+const lastDay = (m: Ram) => mw(m, 0xe) >= 0 && mw(m, 0x28) === mw(m, 0xe);
+
+/** sub_00DBDC: a new day (or the match's start): no lunch or tea taken yet, the clock at 11:00 (10:30 on
+ *  the first day of a 60-over match; sub_00DBEA) */
+function dayStart(m: Ram): void {
+  m.ww(0xbedc, 0); m.ww(0xbede, 0);
+  m.wl(0xbf0a, m.rw(0xbe7a) === 0x3b && m.rw(0xbe76) === 0 ? 0x2760000 : 0x2940000);
+}
+
+/** sub_02F896: close of play. Stumps at 20:00, or 18:00 in a match of more than one day or of unlimited
+ *  overs when $C418 is set (then also in a short limited-overs day: $5460 / ((overs + 1) * 2 per innings)
+ *  minutes per over of more than 3 hours). The next day starts at 11:00 with a new pitch report; at the
+ *  end of the last day the match is drawn unless the players choose to play on (the original asks:
+ *  "CONTINUE MATCH" / "END MATCH"; the page answers the event with 1 to continue). */
+function* closeOfPlay(m: Ram): Generator<MatchEvent, void, number | undefined> {
+  let at = 0x4b0;
+  if (m.rw(0xc418) !== 0) {
+    if (m.rw(0xbe76) !== 0 || m.rw(0xbe7a) < 0) at = 0x438;
+    else {
+      let d0 = w(m.rw(0xbe7a) + 1) * 2;
+      if (m.rw(0xbe7c) !== 1) d0 *= 2;
+      if (divs(0x5460, d0).q <= 0xb4) at = 0x438;
+    }
+  }
+  if (m.rw(0xbf0a) < at) return;
+  m.ww(0xe98a, -1);
+  if (mw(m, 0xc) === 0 && lastDay(m)) {
+    // "Match Drawn (Tied) Innings Incomplete", then CONTINUE MATCH / END MATCH ($C07E; sub_02FC9E)
+    const answer = yield { kind: "lastDayEnd" };
+    if (answer !== 1) { m.ww(0xc61a, -1); return; }
+    setMw(m, 0xc, -1); // sub_00C300: no more days: play on to a result
+    dayStart(m);
+    pitchAndWeather(m); // sub_02DA60 (the pitch report)
+    return;
+  }
+  yield { kind: "dayEnd", day: mw(m, 0x28) };
+  if (!lastDay(m)) setMw(m, 0x28, mw(m, 0x28) + 1); // sub_00C33E
+  dayStart(m);
+  pitchAndWeather(m); // sub_02DA60
 }
 
 // ---------------------------------------------------------------- between innings (sub_00DA70)
@@ -647,9 +754,7 @@ function fieldsForAllBowlers(m: Ram): void {
 /** sub_00DA70: the innings of a match, one after the other. `resume`: the RAM is at a delivery. */
 export function* matchInnings(m: Ram, resume = false): Generator<MatchEvent, void, number | undefined> {
   if (!resume) {
-    // sub_00DBDC: the clock starts at 10:30 (10:60 overs on the first day: 10:00)
-    m.ww(0xbedc, 0); m.ww(0xbede, 0);
-    m.wl(0xbf0a, m.rw(0xbe7a) === 0x3b && m.rw(0xbe76) === 0 ? 0x2760000 : 0x2940000);
+    dayStart(m); // sub_00DBDC
   }
   for (;;) {
     if (!resume) {

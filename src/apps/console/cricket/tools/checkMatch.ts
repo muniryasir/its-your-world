@@ -231,9 +231,8 @@ for (;;) {
     ev = flow.next(answer);
     if (!ev.done && ev.value.kind === "matchEnd") result = ev.value.result;
     if (!ev.done && ev.value.kind === "rain") {
-      // the rain scene is not ported: take the clock it leaves from the recording
+      // the rain scene's display is the page's; the engine moves the clock on (rainScene)
       rain = true; rains++;
-      if (i < idx.length) m.buf.set(snap(i).subarray(0xbf0a, 0xbf0e), 0xbf0a);
     }
   };
   advance();
@@ -246,12 +245,14 @@ for (;;) {
     break;
   }
   if (!ev.done && rain) {
-    // only the match state is compared across a rain break; then everything continues from the recording
+    // across a rain break the match state is compared (the clock included: rainScene)
     const r = diffs(m.buf, snap(i)).filter(([a]) => (a >= 0xa6a0 && a < 0xa6c6) || (a >= 0xbe68 && a < 0xbf12) || (a >= 0xc5ba && a < 0xc5cc) || (a >= 0xc5ce && a < 0xc5e6));
     console.log(`rain break before snapshot ${i}: match state ${r.length ? "DIFFERS " + fmt(r) + r.map(([a]) => ` ${(a & ~1).toString(16)}: engine ${m.rw(a & ~1)} original ${(snap(i)[a & ~1] << 8) | snap(i)[(a & ~1) + 1]}`).join(",") : "matches"}`);
     if (r.length) rainBad++;
+    // the scene also walks the fielders off and back (their records, $8F00, the objects at $CCE8) and
+    // draws the pitch's turn once more: not ported, so everything continues from the recording
     resync(m, snap(i));
   } else if (!ev.done) compare("B", m, i, "");
 }
-console.log(`A: ${stats.A[0]}/${stats.A[1]} deliveries match, B: ${stats.B[0]}/${stats.B[1]} between-ball gaps match${rains ? `, ${rains} rain break(s) (scene not ported; match state ${rainBad ? "DIFFERS" : "matches"})` : ""}`);
+console.log(`A: ${stats.A[0]}/${stats.A[1]} deliveries match, B: ${stats.B[0]}/${stats.B[1]} between-ball gaps match${rains ? `, ${rains} rain break(s) (clock ported, scene not; match state ${rainBad ? "DIFFERS" : "matches"})` : ""}`);
 if (stats.A[0] !== stats.A[1] || stats.B[0] !== stats.B[1] || rainBad) process.exitCode = 1;
