@@ -3,6 +3,7 @@
 // background, sprites, umpire and gauge needles; until then (or if it fails to load) players are drawn
 // as flat silhouettes cut from the original's collision masks, on a night-time ground.
 
+import { drawHud } from "./hud";
 import type { Ram } from "./engine/mem";
 import { projectFloat } from "./engine/project";
 import { getMask } from "./engine/collide";
@@ -65,7 +66,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, m: Ram, view: View, sca
     return drawField(ctx, m, view.field, scale);
   }
   const art = getArt();
-  if (art) return drawOriginal(ctx, m, view, scale, art);
+  if (art) return drawOriginal(ctx, m, view, scale, art, time);
   ctx.save();
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.imageSmoothingEnabled = false;
@@ -202,7 +203,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, m: Ram, view: View, sca
 
 /** the batting view with the original art: background, sprites from the atlas (the team palettes of the
  *  match being played), the umpire layer, the gauge needles */
-function drawOriginal(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: number, art: Art): void {
+function drawOriginal(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: number, art: Art, time: number): void {
   ctx.save();
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.imageSmoothingEnabled = false;
@@ -245,6 +246,7 @@ function drawOriginal(ctx: CanvasRenderingContext2D, m: Ram, view: View, scale: 
     ctx.drawImage(art.needles, 0, 0, 8, 16, GAUGES.power.x, py, 8, 16);
     ctx.drawImage(art.needles, 9, 0, 8, 16, GAUGES.speed.x, sy, 8, 16);
   }
+  if (view.hud) drawHud(ctx, m, art.hud, view.phase === "bowling", time);
   ctx.restore();
 }
 

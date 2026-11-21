@@ -299,7 +299,7 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
       if (!quick && g.delivery) {
         const d = g.delivery, mode = g.padRole === "bowl" ? "bowl" : "bat";
         const k = d.engine.phase.kind;
-        lastView = d.field ? { phase: "field", mode, ...fieldScene(g.m) } : { phase: k === "live" ? "live" : "bowling", mode, ...scene(g.m, k, true) } as View;
+        lastView = d.field ? { phase: "field", mode, ...fieldScene(g.m) } : { phase: k === "live" ? "live" : "bowling", mode, hud: true, ...scene(g.m, k, true) } as View;
       }
       if (lastView && !quick) drawScene(ctx, g.m, lastView, SCALE, now);
       raf = requestAnimationFrame(frame);

@@ -266,6 +266,8 @@ export interface FieldScene {
 }
 export interface View {
   phase: "bowling" | "live" | "field" | "result";
+  /** a match (not the nets): the page draws the original's batting-view extras (score, map, bowler panel) */
+  hud?: boolean;
   /** bat: the machine bowls (its meters move the gauges); bowl: you do */
   mode: Mode;
   enginePhase: string;

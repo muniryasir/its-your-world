@@ -631,3 +631,11 @@ export const FIXED_COLOURS: Record<number, [number, number, number]> = {
 /** the run-out close-up (sub_039F0E; runout-idx.png: 128 frames of 160 x 115 side by side, palette
  *  indices; lines 1 and 2 are the batting and fielding teams', lines 0 and 3 these colour words) */
 export const RUNOUT = { x: 80, y: 32, w: 160, h: 115, frames: 128, line0: [0, 3822, 3276, 2730, 2184, 584, 38, 2112, 3174, 0, 2604, 2604, 1162, 2220, 646, 102], line3: [0, 3822, 2222, 1676, 1130, 70, 12, 8, 2112, 3174, 3276, 2730, 2184, 136, 132, 128] } as const;
+
+/** the original's proportional font (sub_00A22E, ROM $66A34): char → [x in hud-font.png, glyph width, advance]; 16 px tall */
+export const HUD_FONT: Record<string, [number, number, number]> = {" ":[0,0,3],"!":[0,8,5],"#":[8,8,5],"'":[16,8,5],".":[24,8,4],"0":[32,16,10],"1":[48,8,7],"2":[56,16,10],"3":[72,16,10],"4":[88,16,10],"5":[104,16,10],"6":[120,16,10],"7":[136,16,10],"8":[152,16,10],"9":[168,16,10],":":[184,8,7],"<":[192,24,24],"A":[216,16,13],"B":[232,16,12],"C":[248,16,12],"D":[264,16,12],"E":[280,16,11],"F":[296,16,10],"G":[312,16,12],"H":[328,16,12],"I":[344,16,4],"J":[360,16,10],"K":[376,16,12],"L":[392,16,10],"M":[408,16,13],"N":[424,16,12],"O":[440,16,12],"P":[456,16,11],"Q":[472,16,12],"R":[488,16,13],"S":[504,16,11],"T":[520,16,12],"U":[536,16,12],"V":[552,16,13],"W":[568,24,17],"X":[592,16,11],"Y":[608,16,12],"Z":[624,16,11],"a":[640,16,9],"b":[656,16,9],"c":[672,8,8],"d":[680,16,9],"e":[696,16,9],"f":[712,8,7],"g":[720,16,9],"h":[736,16,9],"i":[752,8,4],"j":[760,8,6],"k":[768,8,8],"l":[776,8,4],"m":[784,16,12],"n":[800,16,9],"o":[816,16,9],"p":[832,16,9],"q":[848,16,9],"r":[864,8,7],"s":[872,8,8],"t":[880,8,7],"u":[888,16,9],"v":[904,16,9],"w":[920,16,11],"x":[936,8,8],"y":[944,16,9],"z":[960,8,7]};
+/** the bowler panel's tile font (panel-font.png, 8×16 a char): ' ', '.', "'", 0-9, A-Z, '/', ':' */
+export const PANEL_CHARS = " .'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/:";
+/** the bowler panel (panel-box.png) and the fielders map (map-oval.png), screen positions when fully in */
+export const PANEL_AT = [16, 176] as const;
+export const MAP_AT = [232, 168] as const;

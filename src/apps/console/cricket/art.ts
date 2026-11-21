@@ -15,6 +15,12 @@ import groundBowl from "./art/field-ground-bowl.png";
 import fieldIdx from "./art/field-sprites-idx.png";
 import overlay from "./art/field-overlay.png";
 import runoutIdx from "./art/runout-idx.png";
+import hudFont from "./art/hud-font.png";
+import panelFont from "./art/panel-font.png";
+import panelBox from "./art/panel-box.png";
+import mapOval from "./art/map-oval.png";
+import mapDot from "./art/map-dot.png";
+import type { HudArt } from "./hud";
 import { FIXED_COLOURS, RUNOUT } from "./art/atlas";
 import { TEAM_DATA } from "./engine/teamData";
 import type { Ram } from "./engine/mem";
@@ -27,6 +33,8 @@ export interface Art {
   fg: { bat: HTMLImageElement; bowl: HTMLImageElement };
   staticLayer: HTMLImageElement;
   needles: HTMLImageElement;
+  /** the batting view's extras: fonts, the bowler panel, the fielders map */
+  hud: HudArt;
   /** the fielding view: the whole ground in each match's colours, the pitch overlay */
   field: { ground: { bat: HTMLImageElement; bowl: HTMLImageElement }; overlay: HTMLImageElement };
   /** the sprite atlases (batting view, fielding view) in the colours of the side batting and the side
@@ -93,13 +101,13 @@ export function getArt(): Art | null {
     im.onerror = fail;
     im.src = src;
   });
-  Promise.all([bgBat, bgBowl, fgBat, fgBowl, spritesIdx, staticLayer, needles, groundBat, groundBowl, fieldIdx, overlay, runoutIdx].map(load))
-    .then(([bga, bgb, fga, fgb, sidx, st, nd, gba, gbo, fidx, ov, ridx]) => {
+  Promise.all([bgBat, bgBowl, fgBat, fgBowl, spritesIdx, staticLayer, needles, groundBat, groundBowl, fieldIdx, overlay, runoutIdx, hudFont, panelFont, panelBox, mapOval, mapDot].map(load))
+    .then(([bga, bgb, fga, fgb, sidx, st, nd, gba, gbo, fidx, ov, ridx, hf, pf, pb, mo, md]) => {
       const si = indices(sidx), fi = indices(fidx), ri = indices(ridx);
       const roCache = new Map<string, HTMLCanvasElement>();
       const cache = new Map<string, Sheets>();
       art = {
-        bg: { bat: bga, bowl: bgb }, fg: { bat: fga, bowl: fgb }, staticLayer: st, needles: nd,
+        bg: { bat: bga, bowl: bgb }, fg: { bat: fga, bowl: fgb }, staticLayer: st, needles: nd, hud: { hudFont: hf, panelFont: pf, panelBox: pb, mapOval: mo, mapDot: md },
         field: { ground: { bat: gba, bowl: gbo }, overlay: ov },
         sheets(bat, field, coloured) {
           const key = `${bat}:${field}:${coloured ? 1 : 0}`;
