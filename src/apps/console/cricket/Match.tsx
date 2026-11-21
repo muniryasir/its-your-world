@@ -331,7 +331,7 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
           <button className="cc-btn" onClick={() => setMenu("card")}>Scorecard</button>
           {humanSide && <label className="cc-check"><input type="checkbox" checked={auto} onChange={toggleAuto} /> Auto play</label>}
           <label className="cc-check"><input type="checkbox" checked={paused} onChange={(e) => setPaused(e.target.checked)} /> Hold play</label>
-          <span className="cc-muted">{g.padRole === "bat" ? "You're batting" : g.padRole === "bowl" ? "You're bowling and fielding" : demo ? "Demo" : humanSide ? "The computer is playing for you" : "Watching"}</span>
+          <span className="cc-muted">{!humanSide ? "Watching" : demo ? "Demo: the computer plays for you" : auto ? "The computer is playing for you" : g.padRole === "bat" ? "You're batting" : g.padRole === "bowl" ? "You're bowling and fielding" : ""}</span>
         </div>
       </div>
 
