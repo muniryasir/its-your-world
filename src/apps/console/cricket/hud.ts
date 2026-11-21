@@ -62,7 +62,7 @@ export function drawHudText(ctx: CanvasRenderingContext2D, font: HTMLImageElemen
   }
 }
 
-function panelText(ctx: CanvasRenderingContext2D, font: HTMLImageElement, s: string, x: number, y: number): void {
+export function panelText(ctx: CanvasRenderingContext2D, font: HTMLImageElement, s: string, x: number, y: number): void {
   for (const c of s.toUpperCase()) {
     const k = Math.max(0, PANEL_CHARS.indexOf(c));
     ctx.drawImage(font, k * 8, 0, 8, 16, x, y, 8, 16);
@@ -118,5 +118,26 @@ export function drawHud(ctx: CanvasRenderingContext2D, m: Ram, art: HudArt, bowl
     ctx.drawImage(art.panelBox, px, py);
     panelText(ctx, art.panelFont, lines[0], px + 8, py + 8);
     panelText(ctx, art.panelFont, lines[1], px + 8, py + 32);
+  }
+}
+
+/** width of a line in the proportional font */
+export function hudTextWidth(s: string): number {
+  let w = 0;
+  for (const c of s) w += (HUD_FONT[c] ?? HUD_FONT[" "])[2];
+  return w;
+}
+
+/** a banner between balls in the original's look: the bowler panel's box, the headline in its tile font
+ *  (capitals), the detail in the proportional font; both centred */
+export function drawBanner(ctx: CanvasRenderingContext2D, art: HudArt, text: string, sub?: string): void {
+  ctx.clearRect(0, 0, 208, 48);
+  ctx.drawImage(art.panelBox, 0, 0);
+  const head = text.toUpperCase().replace(/[^ .'0-9A-Z/:]/g, " ").slice(0, 24);
+  panelText(ctx, art.panelFont, head, Math.round((208 - head.length * 8) / 2), sub ? 6 : 16);
+  if (sub) {
+    let t = sub.replace(/·/g, "-").replace(/[^ -~]/g, " ");
+    while (t.length > 3 && hudTextWidth(t) > 196) t = t.slice(0, -2) + ".";
+    drawHudText(ctx, art.hudFont, t, Math.round((208 - hudTextWidth(t)) / 2), 26);
   }
 }

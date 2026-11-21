@@ -230,3 +230,8 @@
   animation: cc-pop 180ms ease-out 2.4s both;
 }
 .cc-m-replay-text.out { color: var(--cc-pink); }
+/* banners in the original's look: the bowler panel's box, 208×48 of the 320×224 screen */
+.cc-m-bannerbox { position: absolute; left: 50%; top: 6%; width: 65%; transform: translateX(-50%); pointer-events: none; animation: cc-fade 160ms ease-out both; }
+@keyframes cc-fade { from { opacity: 0; } to { opacity: 1; } }
+.cc-m-bannerbox.big { top: 50%; transform: translate(-50%, -50%); }
+.cc-m-bannerbox canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }

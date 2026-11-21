@@ -16,6 +16,7 @@ import { TouchPad } from "./Nets";
 import rainCovers from "./art/rain-covers.png";
 import { getArt, matchColours } from "./art";
 import { RUNOUT } from "./art/atlas";
+import { drawBanner } from "./hud";
 
 const TICK_MS = 1000 / 50;
 const LIVE_TICK_MS = 1000 / 41;
@@ -350,10 +351,11 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
           {rain && !quick && <RainScene rain={rain} onDone={() => setRain(null)} />}
           {replay && !quick && !rain && <ReplayScene replay={replay} onDone={() => setReplay(null)} />}
           {banner && !quick && !result && !rain && !replay && (
+            getArt() ? <BannerBox banner={banner} /> : (
             <div className={`cc-result cc-m-banner cc-m-banner--${banner.tone}`} role="status">
               <span className="cc-result-text">{banner.text}</span>
               {banner.sub && <span className="cc-muted">{banner.sub}</span>}
-            </div>
+            </div>)
           )}
           {result && (
             <div className="cc-overlay">
@@ -514,6 +516,23 @@ function resultText(g: MatchGame, r: MatchResult): string {
   const winner = r.winner === "batting" ? last : first;
   if (r.kind === "innings") return `${NAMES[winner]} win by an innings`;
   return `${NAMES[winner]} win by ${r.margin} ${r.kind === "runs" ? "run" : "wicket"}${r.margin === 1 ? "" : "s"}`;
+}
+
+/** a banner in the original's look (phase 6 part F1): drawn on a small canvas over the game screen */
+function BannerBox({ banner }: { banner: Banner }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current, art = getArt();
+    if (!c || !art) return;
+    const ctx = c.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    drawBanner(ctx, art.hud, banner.text, banner.sub);
+  }, [banner]);
+  return (
+    <div className={`cc-m-bannerbox${banner.tone === "big" ? " big" : ""}`} role="status" aria-label={banner.sub ? `${banner.text}. ${banner.sub}` : banner.text}>
+      <canvas ref={ref} width={208} height={48} />
+    </div>
+  );
 }
 
 /** the original's run-out close-up (sub_039F0E): the keeper, the stumps, the bails flying, the bat
