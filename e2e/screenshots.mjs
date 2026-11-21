@@ -120,6 +120,11 @@ await shot(page, "cricket-match-setup-desktop");
 await page.getByRole("button", { name: "Start the match" }).click();
 await page.waitForTimeout(9000);
 await shot(page, "cricket-match-play-desktop", false);
+// the batting view's extras: the score text, the bowler panel at the over's start, then the fielders map
+await page.waitForTimeout(2500);
+await shot(page, "cricket-match-panel-desktop", false);
+await page.waitForTimeout(3500);
+await shot(page, "cricket-match-map-desktop", false);
 await page.getByRole("button", { name: "Pause menu" }).click();
 await shot(page, "cricket-match-pause-desktop", false);
 await page.getByRole("button", { name: "Scorecard" }).first().click();
