@@ -11,6 +11,8 @@ import {
 import type { Input } from "./engine";
 
 import { TEAM_DATA, SQUAD_AT, SQUAD_SIZE, RECORDS_AT, RECORDS_SIZE } from "./teamData";
+import { venueConditions, VENUES } from "./venue";
+import { toss } from "./toss";
 
 /** a team: its index in the original's list (0 England, 1 Australia, ... 12 All Time XI) */
 export type Team = number;
@@ -30,6 +32,10 @@ export interface MatchSettings {
   innings?: 1 | 2;
   /** KITS: coloured clothing and a white ball (+$1A); left out: white */
   coloured?: boolean;
+  /** the venue (0..11: the countries of the team list; left out: the first team's country) */
+  venue?: number;
+  /** a human side tosses for innings (the original's toss); otherwise batFirst decides */
+  toss?: boolean;
   /** the player's fielders are moved by hand (the original's default) */
   humanField: boolean;
   /** 0 easy .. 2 hard ($8604) */
@@ -74,10 +80,9 @@ export function newMatch(s: MatchSettings): Ram {
   set(0x14, s.innings === 2 ? 3 : 1);
   set(0x1a, s.coloured ? -1 : 0);
   set(0x18, s.humanField ? -1 : 0);
-  if (s.pitch !== undefined) set(0x22, s.pitch);
-  if (s.weather !== undefined) set(0x24, s.weather);
   m.ww(0x8604, s.difficulty);
   m.ww(0xe8e8, (s.seed & 0xffff) || 1);
+  venueConditions(m, s.venue ?? (ta < VENUES ? ta : 0), s.pitch, s.weather);
   pitchAndWeather(m);
   m.ww(0xc5e2, -1); // no rain: the rain scene's clock is ported (rainScene), the fielders' walk off is not
   matchStart(m);
@@ -154,7 +159,19 @@ export type Question =
   /** the last day is over with the match unfinished: 1 plays on to a result, anything else ends it drawn */
   | { kind: "playOn" }
   /** the human captain may enforce the follow-on: 1 enforces it */
-  | { kind: "followOn" };
+  | { kind: "followOn" }
+  /** the toss: call heads (0) or tails (1); won it: bat (0) or bowl (1) */
+  | { kind: "tossCall" }
+  | { kind: "tossChoice" };
+
+/** the toss (sub_02E0A8: human matches only), then the match */
+function* withToss(m: Ram): Generator<MatchEvent, void, number | undefined> {
+  const t = toss(m);
+  let e = t.next();
+  while (!e.done) e = t.next(yield e.value);
+  yield { kind: "toss", ...e.value };
+  yield* matchFlow(m, false);
+}
 
 export class MatchGame {
   readonly m: Ram;
@@ -194,7 +211,8 @@ export class MatchGame {
       return;
     }
     this.m = newMatch(settings);
-    this.flow = matchFlow(this.m, false);
+    const tossing = settings.toss && settings.human !== null && settings.human !== undefined;
+    this.flow = tossing ? withToss(this.m) : matchFlow(this.m, false);
     this.pump(undefined);
   }
 
@@ -247,6 +265,8 @@ export class MatchGame {
         case "chooseOpeningBowlers": this.question = { kind: "chooseOpeningBowlers", candidates: this.candidates(false) }; return;
         case "lastDayEnd": this.news.push(e); this.question = { kind: "playOn" }; return;
         case "followOn": this.question = { kind: "followOn" }; return;
+        case "tossCall": this.question = { kind: "tossCall" }; return;
+        case "tossChoice": this.question = { kind: "tossChoice" }; return;
         case "ball": this.lastBall = e.ball; this.news.push(e); break;
         case "inningsEnd": this.innings.push(scorecard(this.m)); this.news.push(e); break;
         case "matchEnd": this.result = e.result; this.news.push(e); break;

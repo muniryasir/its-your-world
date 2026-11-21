@@ -215,3 +215,4 @@
   background: rgba(12, 14, 46, 0.7); color: var(--cc-ink); font: 700 1rem var(--cc-cosmic); letter-spacing: -0.02em;
 }
 .cc-m-v { font: 700 1rem var(--cc-cosmic); color: var(--cc-muted); padding-bottom: 10px; }
+.cc-m-note { align-self: center; margin: 0; }

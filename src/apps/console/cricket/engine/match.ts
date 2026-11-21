@@ -413,6 +413,9 @@ export type MatchEvent =
   | { kind: "dayEnd"; day: number }
   | { kind: "lastDayEnd" }
   | { kind: "declared" }
+  | { kind: "tossCall" }
+  | { kind: "tossChoice" }
+  | { kind: "toss"; winner: 0 | 1; batFirst: 0 | 1; heads: boolean }
   | { kind: "followOn" }
   | { kind: "inningsStart" }
   | { kind: "inningsEnd" }

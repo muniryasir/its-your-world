@@ -9,6 +9,7 @@ import type { MatchSettings, SavedMatch, Team, InningsCard, Question } from "./e
 import { MATCH, inningsNo } from "./engine/match";
 import type { MatchEvent, MatchResult } from "./engine/match";
 import { PAD, scene, fieldScene } from "./engine/practice";
+import { VENUES, PITCH_NAMES, WEATHER_NAMES, rainChance } from "./engine/venue";
 import type { View } from "./engine/practice";
 import { drawScene, SCREEN_W, SCREEN_H } from "./render";
 import { TouchPad } from "./Nets";
@@ -74,6 +75,9 @@ function Setup({ saved, onStart, onResume, onDiscard, seed }: { saved: SavedMatc
   const [coloured, setColoured] = useState(false);
   const [difficulty, setDifficulty] = useState(1);
   const [humanField, setHumanField] = useState(true);
+  const [venue, setVenue] = useState<number | "home">("home");
+  const [pitch, setPitch] = useState<number | "random">("random");
+  const [weather, setWeather] = useState<number | "random">("random");
   const test = overs === 0;
   const seg = <T extends string | number | boolean>(name: string, legend: string, value: T, set: (v: T) => void, items: [T, string][]) => (
     <fieldset className="cc-seg">
@@ -117,7 +121,9 @@ function Setup({ saved, onStart, onResume, onDiscard, seed }: { saved: SavedMatc
         <div className="cc-m-teams">{teamSelect(0, "First team")}<span className="cc-m-v">v</span>{teamSelect(1, "Second team")}</div>
         <div className="cc-m-grid">
           {seg("cc-side", "You play", side, setSide, [[0, NAMES[teams[0]]], [1, NAMES[teams[1]]], ["watch", "Watch the computer"]])}
-          {seg("cc-first", "Batting first", batFirst, setBatFirst, [[0, NAMES[teams[0]]], [1, NAMES[teams[1]]]])}
+          {side === "watch"
+            ? seg("cc-first", "Batting first", batFirst, setBatFirst, [[0, NAMES[teams[0]]], [1, NAMES[teams[1]]]])
+            : <p className="cc-small cc-m-note">Batting first: decided by the toss.</p>}
           {seg("cc-overs", "Overs a side", overs, setOvers, OVERS.map((o) => [o, o ? String(o) : "Unlimited"] as [number, string]))}
           {seg("cc-days", "Period", days, setDays, [1, 2, 3, 4, 5].map((d) => [d, `${d} day${d > 1 ? "s" : ""}`] as [number, string]))}
           {seg("cc-inn", "Innings", innings, setInnings, [[1, "1 each"], [2, "2 each"]])}
@@ -129,10 +135,28 @@ function Setup({ saved, onStart, onResume, onDiscard, seed }: { saved: SavedMatc
             </label>
           )}
         </div>
+        <div className="cc-m-teams">
+          <label className="cc-m-select"><span>Venue</span>
+            <select value={venue} onChange={(e) => setVenue(e.target.value === "home" ? "home" : Number(e.target.value))}>
+              <option value="home">{NAMES[teams[0]] && teams[0] < VENUES ? `Home: ${NAMES[teams[0]]}` : `Home: ${NAMES[0]}`}</option>
+              {NAMES.slice(0, VENUES).map((n, v) => <option key={v} value={v}>{n}</option>)}
+            </select></label>
+          <label className="cc-m-select"><span>Pitch</span>
+            <select value={pitch} onChange={(e) => setPitch(e.target.value === "random" ? "random" : Number(e.target.value))}>
+              <option value="random">The venue's chances</option>
+              {PITCH_NAMES.map((n, k) => <option key={k} value={k}>{n}</option>)}
+            </select></label>
+          <label className="cc-m-select"><span>Weather</span>
+            <select value={weather} onChange={(e) => setWeather(e.target.value === "random" ? "random" : Number(e.target.value))}>
+              <option value="random">The venue's chances</option>
+              {WEATHER_NAMES.map((n, k) => <option key={k} value={k}>{n}</option>)}
+            </select></label>
+        </div>
         {!test && innings === 2 && <p className="cc-small">Two innings each with a limit of overs: as the original allows it.</p>}
         <div className="cc-actions">
           <button className="cc-btn cc-btn--primary" onClick={() => onStart({
             ...DEFAULT_MATCH, teams, human: side === "watch" ? null : teams[side], batFirst: teams[batFirst], overs, days, innings, coloured, difficulty, humanField,
+            toss: side !== "watch", venue: venue === "home" ? undefined : venue, pitch: pitch === "random" ? undefined : pitch, weather: weather === "random" ? undefined : weather,
             seed: seed ?? ((Date.now() & 0xffff) || 1),
           })}>Start the match</button>
         </div>
@@ -171,14 +195,14 @@ function MatchPlay({ game: g, onQuit, onNew, demo }: { game: MatchGame; onQuit: 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const heldRef = useRef(0);
   const pressedRef = useRef(0);
-  const holdUntil = useRef(0);
+  const holdUntil = useRef(g.balls === 0 ? performance.now() + 3500 : 0);
   const overBalls = useRef<number[]>([]);
   const lastSave = useRef(0);
   const [paused, setPaused] = useState(false);
   const [menu, setMenu] = useState<"" | "pause" | "card" | "bowler">("");
   const [auto, setAuto] = useState(g.auto);
   const [quick, setQuick] = useState(false);
-  const [hud, setHud] = useState<Hud>(() => readHud(g, null, []));
+  const [hud, setHud] = useState<Hud>(() => readHud(g, g.balls === 0 ? conditionsBanner(g) : null, []));
 
   const press = useCallback((bits: number) => { pressedRef.current |= bits & ~heldRef.current; heldRef.current |= bits; }, []);
   const release = useCallback((bits: number) => { heldRef.current &= ~bits; }, []);
@@ -444,8 +468,23 @@ function bannerFor(g: MatchGame, e: MatchEvent): Banner | null {
     case "rain": return { text: "Rain stops play", sub: `Play resumes at ${timeText(m.rw(0xbf0a))}`, tone: "big" };
     case "declared": { const c = scorecard(m); return { text: `${NAMES[c.team]} declare`, sub: `at ${c.total}/${c.wickets}`, tone: "big" }; }
     case "lastDayEnd": return { text: "Stumps on the last day", sub: "Match drawn, innings incomplete", tone: "big" };
+    case "toss": {
+      const [ta, tb] = g.settings.teams ?? [0, 1];
+      const w = e.winner === 0 ? ta : tb, bats = e.batFirst === 0 ? ta : tb;
+      return { text: `${NAMES[w]} win the toss`, sub: `${e.heads ? "Heads" : "Tails"} · ${NAMES[w]} ${bats === w ? "bat" : "bowl"} first`, tone: "big" };
+    }
     default: return null;
   }
+}
+
+/** the original's weather screen: venue, pitch, weather, the chance of rain */
+function conditionsBanner(g: MatchGame): Banner {
+  const m = g.m;
+  const venue = m.rw(0xbe88);
+  return {
+    text: `${NAMES[venue] ?? NAMES[0]}: ${PITCH_NAMES[m.rw(MATCH + 0x22)] ?? ""} pitch`,
+    sub: `${WEATHER_NAMES[m.rw(MATCH + 0x24)] ?? ""} · ${rainChance(m)} percent chance of rain`, tone: "big",
+  };
 }
 
 function resultText(g: MatchGame, r: MatchResult): string {
@@ -484,6 +523,18 @@ function QuestionBox({ g, q, onDone }: { g: MatchGame; q: Question; onDone: () =
         ))}
       </div>
       <button className="cc-btn cc-btn--small" onClick={() => answer()}>Let the captain choose</button>
+    </div>
+  );
+  if (q.kind === "tossCall") return (
+    <div className="cc-overlay" role="dialog" aria-label="The toss">
+      <p className="cc-overlay-title">The toss: your call</p>
+      <div className="cc-actions"><button className="cc-btn cc-btn--primary" onClick={() => answer(0)}>Heads</button><button className="cc-btn cc-btn--primary" onClick={() => answer(1)}>Tails</button></div>
+    </div>
+  );
+  if (q.kind === "tossChoice") return (
+    <div className="cc-overlay" role="dialog" aria-label="You won the toss">
+      <p className="cc-overlay-title">You won the toss</p>
+      <div className="cc-actions"><button className="cc-btn cc-btn--primary" onClick={() => answer(0)}>Bat first</button><button className="cc-btn cc-btn--primary" onClick={() => answer(1)}>Bowl first</button></div>
     </div>
   );
   if (q.kind === "playOn") return (

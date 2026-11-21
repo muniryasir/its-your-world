@@ -24,7 +24,7 @@ export function CricketPage() {
           <h1>{tab === "match" ? "International match" : "Practice in the nets"}</h1>
           <p className="cc-lead">The Mega Drive game's rules, players and art, rebuilt from the cartridge's code, not emulated: a whole match with all the original's settings, or batting and bowling practice in the nets.</p>
         </div>
-        <span className="cc-badge">Work in progress · phase 4</span>
+        <span className="cc-badge">Work in progress · phase 6</span>
       </header>
       <div className="cc-modes cc-m-tabs-top" role="tablist" aria-label="Match or nets">
         {(["match", "nets"] as Tab[]).map((t) => (
