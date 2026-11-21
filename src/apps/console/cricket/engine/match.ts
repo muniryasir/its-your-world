@@ -413,6 +413,7 @@ export type MatchEvent =
   | { kind: "dayEnd"; day: number }
   | { kind: "lastDayEnd" }
   | { kind: "declared" }
+  | { kind: "followOn" }
   | { kind: "inningsStart" }
   | { kind: "inningsEnd" }
   | { kind: "matchEnd"; result: MatchResult };
@@ -571,6 +572,27 @@ export function computerDeclares(m: Ram): boolean {
   }
   if (declare) setMw(m, 0x46 + 2 * slot(m), -1); // sub_00C58A
   return declare;
+}
+
+/** sub_04B52A: before the third innings, a human-controlled $B520 (the side that batted last) is asked
+ *  whether the follow-on is enforced when the first innings' lead is at least 75 / 100 / 150 / 150 / 200
+ *  runs for a 1- to 5-day match (ROM $4B608). The computer never enforces it. (Not yet seen in a
+ *  recording: the condition is ported from the code as it reads.) */
+export function followOnOffered(m: Ram): boolean {
+  if (m.rw(0xb520) < 0 || inningsNo(m) !== 2) return false;
+  const lead = w(total(m, 0) - total(m, 1));
+  if (lead < 0) return false;
+  const days = Math.max(0, Math.min(4, mw(m, 0xe)));
+  return lead >= [75, 100, 150, 150, 200][days];
+}
+
+/** The human captain declares (the in-match menu's DECLARE): the innings ends when the over in progress
+ *  is over, where the original tests the flag (sub_00C512 at $DD38). Only in matches of unlimited overs
+ *  and for the side batting. */
+export function humanDeclares(m: Ram): boolean {
+  if (m.rw(0xbe7a) >= 0 || m.rw(0xb520) < 0) return false;
+  setMw(m, 0x46 + 2 * slot(m), -1);
+  return true;
 }
 
 /** sub_00C356: is this the match's last day (+$28 = +$E; not when the days are unlimited)? */
@@ -760,7 +782,11 @@ export function* matchInnings(m: Ram, resume = false): Generator<MatchEvent, voi
     if (!resume) {
       if (m.rw(0x86b0) !== 0) return;
       setMw(m, 0x4e, 0); setMw(m, 0x52, 0); setMw(m, 0x50, 0); // the extras
-      // sub_04B52A (a human captain may enforce the follow-on): phase 4b
+      if (followOnOffered(m)) {
+        // sub_04B52A: the captain may enforce the follow-on (the page answers 1 to enforce it)
+        const answer = yield { kind: "followOn" };
+        if (answer === 1) setMw(m, 0xa, -1);
+      }
       swapSides(m);
       openers(m); // sub_0203EA: a human captain's batting order is the page's screen
       openingBowlers(m);

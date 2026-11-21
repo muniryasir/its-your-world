@@ -100,11 +100,18 @@ const bit = (mk: Mask, x: number, y: number): boolean =>
 // earlier mask left there (the column past the width is cleared only when bit 3 of the width is set), and
 // that stale content takes part in the test. So the masks are built into the engine's RAM the same way.
 const MASK_A = 0x6ce6, MASK_B = 0x6fe6;
+
+/** sub_00C8CC: in coloured clothing (+$1A set: limited-overs matches) the players' sprite frames are
+ *  $96 further on; their pieces and masks are the white kit's (frames 113-219 and 263-369 have the same
+ *  layout in the ROM, and the masks give the same collisions in the recorded coloured-kit match) */
+export const kitFrame = (m: Ram, frame: number): number => (m.rw(0xbe68 + 0x1a) !== 0 ? w(frame + 0x96) : frame);
+const KIT_FIRST = 113 + 0x96, KIT_LAST = 219 + 0x96;
+const maskFrame = (f: number): number => (f >= KIT_FIRST && f <= KIT_LAST ? f - 0x96 : f);
 interface Built { w: number; h: number; stride: number; buf: number }
 
 /** sub_049358 / sub_04976A (mirrored, a negative frame): build a frame's mask at `buf` */
 function buildMask(m: Ram, frame: number, buf: number): Built {
-  const f = Math.abs(frame);
+  const f = maskFrame(Math.abs(frame));
   const pieces = PIECES[f];
   if (!pieces) throw new Error(`no collision mask for sprite frame ${frame}`);
   const [wd, ht] = pieces;
@@ -130,7 +137,7 @@ function buildMask(m: Ram, frame: number, buf: number): Built {
 const rbit = (m: Ram, mk: Built, x: number, y: number): boolean =>
   x >= 0 && y >= 0 && x < mk.stride * 8 && y < mk.h && (m.rb(mk.buf + y * mk.stride + (x >> 3)) & (0x80 >> (x & 7))) !== 0;
 const frameSize = (frame: number): [number, number] => {
-  const p = PIECES[Math.abs(frame)];
+  const p = PIECES[maskFrame(Math.abs(frame))];
   if (!p) throw new Error(`no collision mask for sprite frame ${frame}`);
   return [p[0], p[1]];
 };

@@ -12,7 +12,7 @@ import { w, l, muls, asr, hiAfterShift, divs, div32, swap } from "./m68k";
 import { projectCam } from "./project";
 import { heightForScreenY } from "./batsman";
 import { GRAVITY } from "./ball";
-import { registerObject, deflect, fielderHasBall } from "./collide";
+import { registerObject, deflect, fielderHasBall, kitFrame } from "./collide";
 
 const ptr = (m: Ram, a: number) => m.rl(a) & 0xffff;
 
@@ -407,8 +407,9 @@ function registerFielder(m: Ram, f: number, twice = false): void {
   sx = w(sx - m.rw(f + 0x3e + d4));
   sy = w(sy - m.rw(f + 0x3e + d4 + 2));
   m.ww(f + 0x12c, sx); m.ww(f + 0x12e, sy); m.ww(f + 0x130, frame);
-  registerObject(m, sx, sy, flip ? w(-frame) : frame, m.rw(f + 0x104), f + 0x11e);
-  if (twice) registerObject(m, sx, sy, frame, m.rw(f + 0x104), f + 0x11e);
+  const kit = kitFrame(m, frame); // sub_00C8CC: coloured clothing's frames
+  registerObject(m, sx, sy, flip ? w(-kit) : kit, m.rw(f + 0x104), f + 0x11e);
+  if (twice) registerObject(m, sx, sy, kit, m.rw(f + 0x104), f + 0x11e);
 }
 
 /** sub_047D3E alone (the field's set-up, sub_046FA2): the sprite's screen position and frame */

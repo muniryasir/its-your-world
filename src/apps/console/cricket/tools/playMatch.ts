@@ -10,7 +10,9 @@ const days = +(process.argv[6] ?? 1), innings = (+(process.argv[7] ?? 1) === 2 ?
 const g = new MatchGame({ ...DEFAULT_MATCH, human, overs, seed, days, innings });
 let r = seed * 7919 + 1, held = 0, n = 0;
 while (!g.over && n < 40_000_000) {
-  if (g.question) { const q = g.question; g.answer(q.kind === "chooseBowler" ? q.candidates[0] : undefined); continue; }
+  if (g.question) { const q = g.question; g.answer(q.kind === "chooseBowler" ? q.candidates[0] : q.kind === "followOn" ? (console.log("  follow-on offered: enforced"), 1) : undefined); continue; }
+  // DECLARE=RUNS: the human side declares once its innings total reaches that many
+  if (process.env.DECLARE && g.m.rw(0xbe68 + 0x3e + 2 * g.m.rw(0xbe68 + 0x2c)) >= +process.env.DECLARE && g.declare()) console.log("  human declares");
   let pressed = 0;
   if (random) {
     r = (r * 1103515245 + 12345) >>> 0;

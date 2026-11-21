@@ -4,7 +4,7 @@
 import { Ram } from "./mem";
 import { BASE_RAM_MATCH } from "./baseMatch";
 import {
-  Delivery, MatchEvent, MatchResult, BallSummary, matchFlow, matchStart, pitchAndWeather, canBowl,
+  Delivery, MatchEvent, MatchResult, BallSummary, matchFlow, matchStart, pitchAndWeather, canBowl, humanDeclares,
   total, wicketsIdx, MATCH,
 } from "./match";
 import type { Input } from "./engine";
@@ -21,6 +21,8 @@ export interface MatchSettings {
    *  innings' number: 1 or 3); left out: a one-day, one-innings match */
   days?: number;
   innings?: 1 | 2;
+  /** KITS: coloured clothing and a white ball (+$1A); left out: white */
+  coloured?: boolean;
   /** the player's fielders are moved by hand (the original's default) */
   humanField: boolean;
   /** 0 easy .. 2 hard ($8604) */
@@ -49,6 +51,7 @@ export function newMatch(s: MatchSettings): Ram {
   set(0x12, s.overs > 0 ? s.overs - 1 : -1);
   set(0xe, (s.days ?? 1) - 1);
   set(0x14, s.innings === 2 ? 3 : 1);
+  set(0x1a, s.coloured ? -1 : 0);
   set(0x18, s.humanField ? -1 : 0);
   if (s.pitch !== undefined) set(0x22, s.pitch);
   if (s.weather !== undefined) set(0x24, s.weather);
@@ -113,7 +116,9 @@ export type Question =
   | { kind: "chooseBowler"; forced: boolean; candidates: number[] }
   | { kind: "chooseOpeningBowlers"; candidates: number[] }
   /** the last day is over with the match unfinished: 1 plays on to a result, anything else ends it drawn */
-  | { kind: "playOn" };
+  | { kind: "playOn" }
+  /** the human captain may enforce the follow-on: 1 enforces it */
+  | { kind: "followOn" };
 
 export class MatchGame {
   readonly m: Ram;
@@ -128,7 +133,8 @@ export class MatchGame {
   /** what happened since the page last looked (banners): cleared by the page */
   news: MatchEvent[] = [];
   lastBall: BallSummary | null = null;
-  /** the replay log: pad samples run-length encoded as [held | pressed << 8, count], and the answers */
+  /** the replay log: pad samples run-length encoded as [held | pressed << 8, count], and the answers
+   *  [pad samples so far, value] (-1: nothing given, -2: the human declared) */
   log: { pads: [number, number][]; answers: [number, number][] } = { pads: [], answers: [] };
   private steps = 0;
 
@@ -156,6 +162,7 @@ export class MatchGame {
         case "chooseBowler": this.question = { kind: "chooseBowler", forced: e.forced, candidates: this.candidates(e.forced) }; return;
         case "chooseOpeningBowlers": this.question = { kind: "chooseOpeningBowlers", candidates: this.candidates(false) }; return;
         case "lastDayEnd": this.news.push(e); this.question = { kind: "playOn" }; return;
+        case "followOn": this.question = { kind: "followOn" }; return;
         case "ball": this.lastBall = e.ball; this.news.push(e); break;
         case "inningsEnd": this.innings.push(scorecard(this.m)); this.news.push(e); break;
         case "matchEnd": this.result = e.result; this.news.push(e); break;
@@ -174,6 +181,13 @@ export class MatchGame {
     this.steps++;
     d.step(input);
     if (d.done) { this.delivery = null; this.pump(undefined); }
+  }
+
+  /** the human captain declares: the innings ends with the over in progress (unlimited overs only) */
+  declare(): boolean {
+    const ok = humanDeclares(this.m);
+    if (ok) this.log.answers.push([this.steps, -2]);
+    return ok;
   }
 
   /** answer the open question: a player's index (chooseBowler), first | second << 8 (chooseOpeningBowlers),

@@ -13,7 +13,7 @@ import { Context } from "./context";
 import { project } from "./project";
 import { predictAtY, predictAfter } from "./ball";
 import { rngNextAt } from "./rngAt";
-import { registerObject, deadBall } from "./collide";
+import { registerObject, deadBall, kitFrame } from "./collide";
 import { edgeLift } from "./fielders";
 import { aiHeld, aiButtons, aiReset, aiShot, aiRunCheck, aiOptionsReset } from "./aiBatsman";
 
@@ -168,7 +168,7 @@ export function batsmanReset(m: Ram, ctx: Context): void {
 export function registerBatsman(m: Ram): void {
   const f = m.rw(BAT + 0xe);
   const [x, y] = bodyScreen(m, m.rw(BAT), m.rw(BAT + 4), f);
-  let frame = w(f + 0x8d);
+  let frame = kitFrame(m, w(f + 0x8d)); // sub_00C8CC: coloured clothing's frames
   if ((m.rb(0xd2c6) & 0xff) !== 0) frame = w(-frame);
   registerObject(m, x, y, frame, m.rw(BAT + 4), 0xd2cc);
 }
